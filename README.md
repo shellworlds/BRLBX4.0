@@ -11,6 +11,8 @@ Cloud-native baseline for **Borel Sigma** (GCP, GKE, GitOps, GitHub Actions). La
 
 ## Quick links
 
+- GitHub **Project** (delivery board): [Borel Sigma — delivery](https://github.com/users/shellworlds/projects/7)
+- Wiki bootstrap (first-time): `docs/wiki.md`
 - Terraform and GCP: `infrastructure/README.md`
 - Architecture diagram (text): `docs/architecture.md`
 - Argo CD bootstrap: `infrastructure/README.md` (“GitOps bootstrap”)
