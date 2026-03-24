@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vendor-process-payouts
+spec:
+  schedule: "*/10 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: curl
+              image: curlimages/curl:8.6.0
+              command:
+                - /bin/sh
+                - -ceu
+                - |
+                  curl -fsS -X POST \
+                    -H "X-Internal-Token: ${INTERNAL_AGGREGATE_TOKEN}" \
+                    "http://vendor-ecosystem:8080/api/v1/internal/payouts/process"
+              env:
+                - name: INTERNAL_AGGREGATE_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: vendor-ecosystem-secrets
+                      key: INTERNAL_AGGREGATE_TOKEN
+                      optional: true

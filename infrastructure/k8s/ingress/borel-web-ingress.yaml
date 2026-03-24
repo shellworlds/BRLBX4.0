@@ -1,0 +1,35 @@
+# Public marketing + Next.js app (www). Backend API remains on api host (borel-api-ingress.yaml).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: borel-web-routes
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - www.borelsigma.com
+        - staging.borelsigma.com
+      secretName: borel-web-tls
+  rules:
+    - host: www.borelsigma.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 3000
+    - host: staging.borelsigma.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 3000

@@ -5,4 +5,5 @@ resources:
   - deployment.yaml
   - service.yaml
   - cronjob-daily-aggregate.yaml
+  - cronjob-process-payouts.yaml
   - scaledobject.yaml

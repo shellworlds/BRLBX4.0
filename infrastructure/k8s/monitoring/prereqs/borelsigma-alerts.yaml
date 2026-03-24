@@ -32,3 +32,16 @@ spec:
             severity: critical
           annotations:
             summary: Prometheus scrape target down (tune job filters as needed)
+        # When services expose RED metrics (e.g. http_requests_total), wire this expr to your job label.
+        - alert: BorelAPI5xxRateHigh
+          expr: |
+            (
+              sum(rate(http_requests_total{status=~"5.."}[5m]))
+              /
+              clamp_min(sum(rate(http_requests_total[5m])), 1)
+            ) > 0.01
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: HTTP 5xx rate above 1% (enable http_requests_total or replace with ingress metric)
