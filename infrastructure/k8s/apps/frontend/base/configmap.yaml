@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+data:
+  # Server-side BFF targets (cluster DNS). Override per environment.
+  ENERGY_SERVICE_URL: "http://energy-management"
+  VENDOR_SERVICE_URL: "http://vendor-ecosystem"
+  IOT_SERVICE_URL: "http://iot-ingestion"
+  AUTH_SERVICE_URL: "http://auth-rbac"
+  ML_SERVICE_URL: "http://ml-predictor"
+  AUTH0_BASE_URL: "https://app.borelsigma.example"
+  NEXT_PUBLIC_AUTH0_DOMAIN: "REPLACE_ME.auth0.com"
+  NEXT_PUBLIC_AUTH0_CLIENT_ID: "REPLACE_ME"

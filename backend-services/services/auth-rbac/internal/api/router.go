@@ -9,6 +9,7 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 
 	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/auth"
+	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/cors"
 	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/metrics"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/auth-rbac/internal/repo"
 )
@@ -23,6 +24,7 @@ type RouterConfig struct {
 func NewRouter(cfg RouterConfig) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
+	cors.Use(r)
 	r.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 	r.GET("/metrics", metrics.Handler())
 	if cfg.EnableSwagger {

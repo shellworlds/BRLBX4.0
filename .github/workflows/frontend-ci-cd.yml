@@ -14,6 +14,7 @@ on:
 permissions:
   contents: read
   id-token: write
+  pull-requests: write
 
 env:
   REGION: us-central1
@@ -38,11 +39,21 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+        env:
+          AUTH0_SECRET: ci_build_placeholder_secret_at_least_32_chars_0
+          AUTH0_BASE_URL: http://localhost:3000
+          AUTH0_ISSUER_BASE_URL: https://placeholder.auth0.com
+          AUTH0_CLIENT_ID: placeholder
+          AUTH0_CLIENT_SECRET: placeholder
 
   docker-release:
     needs: [lint-test-build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
@@ -74,5 +85,33 @@ jobs:
           TAG: ${{ github.sha }}
         run: |
           img="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${TAG}"
-          docker build -t "${img}" -f frontend/Dockerfile frontend
+          docker build -t "${img}" -f frontend/Dockerfile frontend \
+            --build-arg AUTH0_SECRET=ci_docker_placeholder_secret_at_least_32_chars \
+            --build-arg AUTH0_BASE_URL=http://localhost:3000 \
+            --build-arg AUTH0_ISSUER_BASE_URL=https://placeholder.auth0.com \
+            --build-arg AUTH0_CLIENT_ID=placeholder \
+            --build-arg AUTH0_CLIENT_SECRET=placeholder
           docker push "${img}"
+
+      - name: Bump dev frontend image tag in kustomize
+        if: steps.wif.outputs.enabled == 'true'
+        env:
+          TAG: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          f="infrastructure/k8s/apps/frontend/overlays/dev/kustomization.yaml"
+          sed -i.bak "s/newTag: .*/newTag: ${TAG}/" "${f}"
+          rm -f "${f}.bak"
+
+      - name: Open PR for frontend dev image tag
+        if: steps.wif.outputs.enabled == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(k8s): bump frontend dev image to ${{ github.sha }}"
+          branch: ci/bump-frontend-dev-${{ github.sha }}
+          delete-branch: true
+          title: "chore(k8s): bump frontend dev image to ${{ github.sha }}"
+          body: |
+            Automated frontend dev overlay tag bump after image push (`${{ github.sha }}`).

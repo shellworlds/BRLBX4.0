@@ -9,6 +9,16 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+ARG AUTH0_SECRET=docker_build_placeholder_secret_at_least_32_chars
+ARG AUTH0_BASE_URL=http://localhost:3000
+ARG AUTH0_ISSUER_BASE_URL=https://placeholder.auth0.com
+ARG AUTH0_CLIENT_ID=placeholder
+ARG AUTH0_CLIENT_SECRET=placeholder
+ENV AUTH0_SECRET=$AUTH0_SECRET
+ENV AUTH0_BASE_URL=$AUTH0_BASE_URL
+ENV AUTH0_ISSUER_BASE_URL=$AUTH0_ISSUER_BASE_URL
+ENV AUTH0_CLIENT_ID=$AUTH0_CLIENT_ID
+ENV AUTH0_CLIENT_SECRET=$AUTH0_CLIENT_SECRET
 RUN npm run build
 
 FROM node:20-bookworm-slim AS runner

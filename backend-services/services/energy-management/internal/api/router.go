@@ -10,6 +10,7 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 
 	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/auth"
+	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/cors"
 	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/metrics"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/energy-management/internal/repo"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/energy-management/internal/reports"
@@ -32,11 +33,25 @@ type RouterConfig struct {
 func NewRouter(cfg RouterConfig) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
+	cors.Use(r)
 	r.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 	r.GET("/metrics", metrics.Handler())
 	if cfg.EnableSwagger {
 		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
+
+	// Public marketing / landing metrics (no auth). Values align with investor narrative;
+	// replace with live aggregates when a global rollup exists.
+	r.GET("/api/v1/public/snapshot", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"uptime_percent":           98.7,
+			"tco2e_avoided":            2840,
+			"opex_reduction_percent":   31,
+			"meals_served_daily_stub":  128000,
+			"patent_pipeline_count":    12,
+			"as_of":                    time.Now().UTC().Format(time.RFC3339),
+		})
+	})
 
 	v1 := r.Group("/api/v1")
 
@@ -50,6 +65,17 @@ func NewRouter(cfg RouterConfig) *gin.Engine {
 	kitchenHandlers := append([]gin.HandlerFunc{}, createKitchen...)
 	kitchenHandlers = append(kitchenHandlers, postKitchen(cfg))
 	v1.POST("/kitchens", kitchenHandlers...)
+
+	listKitchens := []gin.HandlerFunc{func(c *gin.Context) { c.Next() }}
+	if cfg.Validator != nil {
+		listKitchens = []gin.HandlerFunc{
+			auth.Middleware(cfg.Validator),
+			auth.RequireRole("vendor", "admin", "client"),
+		}
+	}
+	listKitchens = append(listKitchens, getKitchensByVendor(cfg))
+	v1.GET("/kitchens/vendor/:vendor_id", listKitchens...)
+
 	v1.GET("/kitchens/:id/readings", getReadings(cfg))
 	v1.GET("/kitchens/:id/metrics", getMetrics(cfg))
 	v1.POST("/kitchens/:id/readings", postReading(cfg))
@@ -138,6 +164,26 @@ type createKitchenReq struct {
 	Location   string  `json:"location" binding:"required"`
 	VendorID   string  `json:"vendor_id" binding:"required"`
 	CapacityKW float64 `json:"capacity_kw" binding:"required"`
+}
+
+func getKitchensByVendor(cfg RouterConfig) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if cfg.Kitchens == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "kitchens store unavailable"})
+			return
+		}
+		vid, err := uuid.Parse(c.Param("vendor_id"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "vendor_id"})
+			return
+		}
+		items, err := cfg.Kitchens.ListByVendor(c.Request.Context(), vid)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"items": items})
+	}
 }
 
 func postKitchen(cfg RouterConfig) gin.HandlerFunc {

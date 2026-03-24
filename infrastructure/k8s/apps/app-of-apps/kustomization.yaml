@@ -12,4 +12,7 @@ resources:
   - iot-ingestion-dev.yaml
   - auth-rbac-dev.yaml
   - ml-predictor-dev.yaml
+  - frontend-dev.yaml
+  - frontend-staging.yaml
+  - frontend-prod.yaml
   - sealed-secrets-app.yaml

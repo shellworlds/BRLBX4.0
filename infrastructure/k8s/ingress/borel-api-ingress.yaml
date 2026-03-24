@@ -1,0 +1,48 @@
+# Example nginx ingress: map host paths to cluster services. Adjust host/tls for your environment.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: borel-api-routes
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: api.borelsigma.example
+      http:
+        paths:
+          - path: /energy(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: energy-management
+                port:
+                  number: 80
+          - path: /vendor(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: vendor-ecosystem
+                port:
+                  number: 80
+          - path: /iot(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: iot-ingestion
+                port:
+                  number: 80
+          - path: /auth(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-rbac
+                port:
+                  number: 80
+          - path: /ml(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: ml-predictor
+                port:
+                  number: 80
