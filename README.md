@@ -5,7 +5,7 @@ Cloud-native baseline for **Borel Sigma** (GCP, GKE, GitOps, GitHub Actions). La
 | Path | Purpose |
 |------|---------|
 | `infrastructure/` | Terraform (GCP), Kubernetes manifests, Argo CD, monitoring docs |
-| `backend-services/` | Microservices (Go `hello-world` today) |
+| `backend-services/` | Go microservices: energy, vendor, IoT ingest, auth-rbac, hello-world (see `backend-services/README.md`) |
 | `frontend/` | Next.js app (standalone Docker image) |
 | `docs/` | Architecture and runbooks |
 
@@ -39,8 +39,8 @@ Until these are set, CI still runs builds/tests but skips pushes (see workflow `
 ## Local development
 
 ```bash
-# Backend
-cd backend-services/services/hello-world && go test ./...
+# Backend (single module root)
+cd backend-services && go test ./...
 
 # Frontend
 cd frontend && npm ci && npm run dev

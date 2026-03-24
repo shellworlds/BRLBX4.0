@@ -1,0 +1,206 @@
+package api
+
+import (
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/auth"
+	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/metrics"
+	"github.com/shellworlds/BRLBX4.0/backend-services/services/energy-management/internal/repo"
+)
+
+type RouterConfig struct {
+	Validator *auth.Validator
+	AdminKey  string
+	// IngestBearer if set, requires Authorization: Bearer <token> for POST readings (IoT gateway).
+	IngestBearer string
+	Kitchens     *repo.KitchenStore
+	Readings     *repo.ReadingStore
+}
+
+// NewRouter wires HTTP routes for energy management.
+func NewRouter(cfg RouterConfig) *gin.Engine {
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
+	r.GET("/metrics", metrics.Handler())
+
+	v1 := r.Group("/api/v1")
+
+	createKitchen := []gin.HandlerFunc{func(c *gin.Context) { c.Next() }}
+	if cfg.AdminKey != "" {
+		createKitchen = []gin.HandlerFunc{auth.AdminAPIKeyMiddleware("X-Admin-Key", cfg.AdminKey)}
+	} else if cfg.Validator != nil {
+		createKitchen = []gin.HandlerFunc{auth.Middleware(cfg.Validator), auth.RequireRole("admin")}
+	}
+
+	kitchenHandlers := append([]gin.HandlerFunc{}, createKitchen...)
+	kitchenHandlers = append(kitchenHandlers, postKitchen(cfg))
+	v1.POST("/kitchens", kitchenHandlers...)
+	v1.GET("/kitchens/:id/readings", getReadings(cfg))
+	v1.GET("/kitchens/:id/metrics", getMetrics(cfg))
+	v1.POST("/kitchens/:id/readings", postReading(cfg))
+	v1.GET("/kitchens/:id/controller", getController(cfg))
+
+	return r
+}
+
+type createKitchenReq struct {
+	Name       string  `json:"name" binding:"required"`
+	Location   string  `json:"location" binding:"required"`
+	VendorID   string  `json:"vendor_id" binding:"required"`
+	CapacityKW float64 `json:"capacity_kw" binding:"required"`
+}
+
+func postKitchen(cfg RouterConfig) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var body createKitchenReq
+		if err := c.ShouldBindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		vid, err := uuid.Parse(body.VendorID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "vendor_id"})
+			return
+		}
+		k := &repo.Kitchen{Name: body.Name, Location: body.Location, VendorID: vid, CapacityKW: body.CapacityKW}
+		if err := cfg.Kitchens.Create(c.Request.Context(), k); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusCreated, k)
+	}
+}
+
+func getReadings(cfg RouterConfig) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "kitchen id"})
+			return
+		}
+		fromS := c.Query("from")
+		toS := c.Query("to")
+		if fromS == "" || toS == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "from and to required (RFC3339)"})
+			return
+		}
+		from, err := time.Parse(time.RFC3339, fromS)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "from"})
+			return
+		}
+		to, err := time.Parse(time.RFC3339, toS)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "to"})
+			return
+		}
+		rows, err := cfg.Readings.List(c.Request.Context(), id, from, to)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"items": rows})
+	}
+}
+
+func getMetrics(cfg RouterConfig) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "kitchen id"})
+			return
+		}
+		to := time.Now().UTC()
+		from := to.Add(-24 * time.Hour)
+		uptime, err := cfg.Readings.AggregateUptime(c.Request.Context(), id, from, to)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		avgGrid, err := cfg.Readings.AverageGridKW(c.Request.Context(), id, from, to)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		// LCOE stub: scale average grid import ( simplistic $/kWh placeholder coefficient).
+		lcoe := avgGrid * 0.18
+		c.JSON(http.StatusOK, gin.H{"kitchen_id": id, "window_uptime_percent": uptime, "lco_stub_usd_per_kwh": lcoe})
+	}
+}
+
+type readingReq struct {
+	Timestamp    *time.Time `json:"timestamp"`
+	GridPower    float64    `json:"grid_power"`
+	BatteryPower float64    `json:"battery_power"`
+	SolarPower   float64    `json:"solar_power"`
+	LPGStatus    string     `json:"lpg_status"`
+	UptimePercent float64   `json:"uptime_percent"`
+}
+
+func postReading(cfg RouterConfig) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if cfg.IngestBearer != "" {
+			h := c.GetHeader("Authorization")
+			if h != "Bearer "+cfg.IngestBearer {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "ingest auth"})
+				return
+			}
+		}
+		id, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "kitchen id"})
+			return
+		}
+		var body readingReq
+		if err := c.ShouldBindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		ts := time.Now().UTC()
+		if body.Timestamp != nil {
+			ts = body.Timestamp.UTC()
+		}
+		if body.LPGStatus == "" {
+			body.LPGStatus = "unknown"
+		}
+		r := &repo.EnergyReading{
+			KitchenID:     id,
+			TS:            ts,
+			GridPower:     body.GridPower,
+			BatteryPower:  body.BatteryPower,
+			SolarPower:    body.SolarPower,
+			LPGStatus:     body.LPGStatus,
+			UptimePct:     body.UptimePercent,
+		}
+		if err := cfg.Readings.Insert(c.Request.Context(), r); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{"status": "accepted"})
+	}
+}
+
+func getController(cfg RouterConfig) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "kitchen id"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"kitchen_id": id,
+			"mode":       "tri_modal",
+			"sources": gin.H{
+				"grid":    "active",
+				"battery": "standby",
+				"solar":   "tracking",
+				"lpg":     "backup_ready",
+			},
+			"last_transition": time.Now().UTC().Add(-15 * time.Minute).Format(time.RFC3339),
+		})
+	}
+}

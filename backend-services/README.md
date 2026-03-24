@@ -1,3 +1,102 @@
 # backend-services
 
-Microservices for Borel Sigma (Go/Node.js workloads).
+Go microservices for **Borel Sigma** with shared packages under `pkg/`.
+
+## Services
+
+| Service | Responsibility | Primary data stores |
+|--------|------------------|------------------------|
+| `services/energy-management` | Kitchens, energy readings, tri-modal controller status | PostgreSQL (kitchens) + TimescaleDB (readings hypertable) |
+| `services/vendor-ecosystem` | Vendors, financing, transactions | PostgreSQL |
+| `services/iot-ingestion` | MQTT telemetry ingest, raw archive, offline alerts | TimescaleDB (raw) + PostgreSQL (alerts) |
+| `services/auth-rbac` | Auth0 JWT validation, user sync webhook, RBAC surface | PostgreSQL |
+| `services/hello-world` | Tiny health/metrics demo | none |
+
+## Shared packages (`pkg/`)
+
+- `pkg/config` — environment config via Viper
+- `pkg/logger` — zap log setup
+- `pkg/db` — pgxpool helper
+- `pkg/metrics` — `/metrics` Gin handler (Prometheus)
+- `pkg/migrate` — `golang-migrate` runner against `migrations/` trees
+- `pkg/auth` — Auth0 JWKS validation + Gin middleware + admin header helper
+
+## Running locally
+
+From `backend-services/`:
+
+```bash
+export POSTGRES_KITCHEN_DSN='postgres://user:pass@localhost:5432/kitchens?sslmode=disable'
+export POSTGRES_TIMESCALE_DSN='postgres://user:pass@localhost:5433/ts?sslmode=disable'
+go run ./services/energy-management
+```
+
+Each service reads `SERVICE_ROOT` (defaults to `.` locally; Docker sets `/app` with migrations baked in).
+
+### Common environment variables
+
+**energy-management**
+
+- `POSTGRES_KITCHEN_DSN`, `POSTGRES_TIMESCALE_DSN` (required)
+- `ADMIN_API_KEY` **or** `AUTH0_DOMAIN` + `AUTH0_AUDIENCE` for admin-only kitchen registration
+- `INGEST_BEARER_TOKEN` (optional) protects `POST /api/v1/kitchens/:id/readings`
+
+**vendor-ecosystem**
+
+- `POSTGRES_VENDOR_DSN`
+
+**iot-ingestion**
+
+- `POSTGRES_IOT_DSN`, `POSTGRES_IOT_TIMESCALE_DSN`
+- `ENERGY_SERVICE_URL` (e.g. `http://localhost:8080` or in-cluster `http://energy-management`)
+- `MQTT_BROKER_URL` (`tcp://...`)
+- `MQTT_USERNAME`, `MQTT_PASSWORD` (optional)
+- `INGEST_BEARER_TOKEN` (must match energy service)
+- `SLACK_WEBHOOK_URL` (optional)
+
+**auth-rbac**
+
+- `POSTGRES_AUTH_DSN`
+- `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`
+- `AUTH0_SYNC_WEBHOOK_SECRET` (if empty, `/api/v1/users/sync` returns 503)
+
+## Migrations
+
+Each service keeps SQL migrations under `services/<name>/migrations/...` and runs `migrate` automatically on startup.
+
+## Docker images
+
+Build context must be **`backend-services/`** (the module root):
+
+```bash
+docker build -f services/energy-management/Dockerfile -t energy-management:dev .
+```
+
+## OpenAPI / Swagger
+
+Handlers are annotated with `swag` conventions in selected `main.go` files. To generate docs locally:
+
+```bash
+go install github.com/swaggo/swag/cmd/swag@latest
+# Example (per service): swag init -g main.go -d services/energy-management -o services/energy-management/docs
+```
+
+## Tests
+
+```bash
+go test ./...
+go test -cover ./...
+```
+
+Integration tests with `testcontainers-go` can be added per repository package; current coverage focuses on pure logic and handler auth gates.
+
+## Kubernetes secrets (expected keys)
+
+Create SealedSecrets / ExternalSecrets with the same names referenced by manifests:
+
+- `energy-management-secrets`: `POSTGRES_KITCHEN_DSN`, `POSTGRES_TIMESCALE_DSN`, optional `ADMIN_API_KEY`, `INGEST_BEARER_TOKEN`, `AUTH0_*`
+- `vendor-ecosystem-secrets`: `POSTGRES_VENDOR_DSN`
+- `iot-ingestion-secrets`: `POSTGRES_IOT_DSN`, `POSTGRES_IOT_TIMESCALE_DSN`, `ENERGY_SERVICE_URL`, `MQTT_BROKER_URL`, optional MQTT creds, `INGEST_BEARER_TOKEN`, `SLACK_WEBHOOK_URL`
+- `auth-rbac-secrets`: `POSTGRES_AUTH_DSN`, `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`, `AUTH0_SYNC_WEBHOOK_SECRET`
+
+Cloud SQL Auth Proxy sidecars should target these DSNs with `127.0.0.1` hosts (advanced overlays).

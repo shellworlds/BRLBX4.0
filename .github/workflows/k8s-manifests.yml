@@ -23,6 +23,10 @@ jobs:
           - path: infrastructure/k8s/namespaces
           - path: infrastructure/k8s/apps/hello-world/overlays/dev
           - path: infrastructure/k8s/apps/hello-world/overlays/dev-with-prometheus
+          - path: infrastructure/k8s/apps/energy-management/overlays/dev
+          - path: infrastructure/k8s/apps/vendor-ecosystem/overlays/dev
+          - path: infrastructure/k8s/apps/iot-ingestion/overlays/dev
+          - path: infrastructure/k8s/apps/auth-rbac/overlays/dev
           - path: infrastructure/k8s/apps/app-of-apps
           - path: infrastructure/k8s/bootstrap
     steps:

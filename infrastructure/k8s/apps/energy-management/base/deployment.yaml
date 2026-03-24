@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: energy-management
+  labels:
+    app.kubernetes.io/name: energy-management
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: energy-management
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: energy-management
+    spec:
+      serviceAccountName: default
+      containers:
+        - name: energy-management
+          image: energy-management:latest
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: SERVICE_ROOT
+              value: /app
+          envFrom:
+            - configMapRef:
+                name: energy-management-config
+                optional: true
+            - secretRef:
+                name: energy-management-secrets
+                optional: true
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi

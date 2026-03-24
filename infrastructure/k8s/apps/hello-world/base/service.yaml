@@ -4,6 +4,10 @@ metadata:
   name: hello-world
   labels:
     app.kubernetes.io/name: hello-world
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
 spec:
   type: ClusterIP
   selector:

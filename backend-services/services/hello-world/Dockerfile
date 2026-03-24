@@ -2,10 +2,10 @@
 FROM golang:1.22-alpine AS build
 WORKDIR /src
 RUN apk add --no-cache ca-certificates git
-COPY go.mod .
+COPY go.mod go.sum ./
 RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /hello-world .
+COPY services/hello-world ./services/hello-world
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /hello-world ./services/hello-world
 
 FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /

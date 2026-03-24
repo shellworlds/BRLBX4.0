@@ -17,6 +17,6 @@ updates:
       - dependency-name: "eslint-config-next"
         update-types: ["version-update:semver-major"]
   - package-ecosystem: gomod
-    directory: "/backend-services/services/hello-world"
+    directory: "/backend-services"
     schedule:
       interval: weekly

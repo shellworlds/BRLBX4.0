@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS transactions;
+DROP TABLE IF EXISTS financing;
+DROP TABLE IF EXISTS vendors;
