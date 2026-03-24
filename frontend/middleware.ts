@@ -4,6 +4,12 @@ import { getSession } from "@auth0/nextjs-auth0/edge";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  /** Some clients request lowercase; canonical URL is /BLRBX4.0 */
+  if (pathname === "/blrbx4.0") {
+    return NextResponse.redirect(new URL("/BLRBX4.0", req.url), 308);
+  }
+
   if (!pathname.startsWith("/portal")) {
     return NextResponse.next();
   }
@@ -19,5 +25,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/portal", "/portal/:path*"],
+  matcher: ["/portal", "/portal/:path*", "/blrbx4.0"],
 };
