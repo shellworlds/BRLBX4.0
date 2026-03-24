@@ -1,0 +1,63 @@
+# Daily logical backup to GCS. Wire Workload Identity + Secret before enabling in prod.
+# Terraform should create bucket `db-backups` and grant `roles/storage.objectCreator` to the backup runtime SA.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-dump-to-gcs
+  namespace: prod
+spec:
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: default
+          containers:
+            - name: cloud-sql-proxy
+              image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.4
+              args:
+                - --private-ip
+                - --address=127.0.0.1
+                - --port=5432
+                - borel-sigma-prod:us-central1:borel-sigma-tx-1
+              securityContext:
+                runAsNonRoot: true
+            - name: backup
+              image: google/cloud-sdk:468.0.0
+              command:
+                - /bin/bash
+                - -ceu
+                - |
+                  apt-get update -qq
+                  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq postgresql-client
+                  for i in $(seq 1 30); do
+                    if pg_isready -h 127.0.0.1 -p 5432; then break; fi
+                    sleep 2
+                  done
+                  : "${PGDATABASE:?set PGDATABASE}"
+                  : "${PGUSER:?set PGUSER}"
+                  : "${GCS_BUCKET:?set GCS_BUCKET}"
+                  ts="$(date -u +%Y%m%dT%H%M%SZ)"
+                  outfile="${GCS_BUCKET}/${PGDATABASE}-${ts}.sql.gz"
+                  pg_dump -h 127.0.0.1 -p 5432 -U "${PGUSER}" "${PGDATABASE}" | gzip -c | gsutil cp - "${outfile}"
+              env:
+                - name: GCS_BUCKET
+                  value: gs://borel-sigma-prod-db-backups
+                - name: PGDATABASE
+                  value: borelsigma_main
+                - name: PGUSER
+                  value: backend_user
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: db-backup-credentials
+                      key: password
+              resources:
+                requests:
+                  cpu: 250m
+                  memory: 512Mi

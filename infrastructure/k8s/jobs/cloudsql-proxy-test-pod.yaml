@@ -1,0 +1,33 @@
+# Replace PROJECT:REGION:INSTANCE with your Cloud SQL connection name after Terraform apply.
+# kubectl -n dev apply -f cloudsql-proxy-test-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cloudsql-proxy-test
+  namespace: dev
+spec:
+  serviceAccountName: default
+  containers:
+    - name: cloud-sql-proxy
+      image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.4
+      args:
+        - --private-ip
+        - borel-sigma-prod:us-central1:borel-sigma-tx-1
+      securityContext:
+        runAsNonRoot: true
+    - name: psql-check
+      image: postgres:15-alpine
+      command: ["sleep", "3600"]
+      env:
+        - name: PGHOST
+          value: "127.0.0.1"
+        - name: PGPORT
+          value: "5432"
+        - name: PGUSER
+          value: "backend_user"
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: password
+              optional: true

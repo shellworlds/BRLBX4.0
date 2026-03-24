@@ -1,0 +1,16 @@
+# Reference values for manual Helm installs — see monitoring/README.md.
+# Grafana Loki chart settings vary by major version; validate against chart docs.
+loki:
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: filesystem
+
+deploymentMode: SingleBinary
+
+singleBinary:
+  replicas: 1
+
+promtail:
+  enabled: true

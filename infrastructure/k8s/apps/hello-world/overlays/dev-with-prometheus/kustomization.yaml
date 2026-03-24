@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: dev
+resources:
+  - ../../base
+  - servicemonitor.yaml
+images:
+  - name: hello-world
+    newName: us-central1-docker.pkg.dev/borel-sigma-prod/borel-sigma-containers/hello-world
+    newTag: dev

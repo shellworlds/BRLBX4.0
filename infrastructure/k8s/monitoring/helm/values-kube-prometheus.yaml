@@ -1,0 +1,16 @@
+# Minimal values — expand for HA / remote storage in production.
+grafana:
+  enabled: true
+  adminPassword: changeme-in-production
+
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    retention: 15d
+
+alertmanager:
+  enabled: true
+
+defaultRules:
+  create: true

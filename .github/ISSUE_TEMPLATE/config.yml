@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security
+    url: https://github.com/shellworlds/BRLBX4.0/security/policy
+    about: Report sensitive issues privately per SECURITY.md

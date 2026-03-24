@@ -1,0 +1,100 @@
+name: Backend CI / CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend-services/**"
+      - ".github/workflows/backend-ci-cd.yml"
+  pull_request:
+    paths:
+      - "backend-services/**"
+      - ".github/workflows/backend-ci-cd.yml"
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+env:
+  REGION: us-central1
+  AR_REPO: borel-sigma-containers
+  IMAGE_NAME: hello-world
+  PROJECT_ID: borel-sigma-prod
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend-services/services/hello-world
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Go test
+        run: go test ./...
+
+  release:
+    needs: [test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check Workload Identity secret
+        id: wif
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}" ] && [ -n "${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping GCP image push — set GCP_WORKLOAD_IDENTITY_PROVIDER and GCP_SERVICE_ACCOUNT_EMAIL repository secrets."
+          fi
+
+      - name: Authenticate to Google Cloud
+        if: steps.wif.outputs.enabled == 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Configure Docker for Artifact Registry
+        if: steps.wif.outputs.enabled == 'true'
+        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+
+      - name: Build and push image
+        if: steps.wif.outputs.enabled == 'true'
+        env:
+          TAG: ${{ github.sha }}
+        run: |
+          img="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${TAG}"
+          docker build -t "${img}" backend-services/services/hello-world
+          docker push "${img}"
+
+      - name: Bump Kustomize image tag
+        if: steps.wif.outputs.enabled == 'true'
+        env:
+          TAG: ${{ github.sha }}
+        run: |
+          file=infrastructure/k8s/apps/hello-world/overlays/dev/kustomization.yaml
+          sed -i.bak "s/newTag: .*/newTag: ${TAG}/" "${file}"
+          rm -f "${file}.bak"
+
+      - name: Open PR for image tag bump
+        if: steps.wif.outputs.enabled == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(k8s): bump hello-world image to ${{ github.sha }}"
+          branch: ci/bump-hello-world-${{ github.sha }}
+          delete-branch: true
+          title: "chore(k8s): bump hello-world to ${{ github.sha }}"
+          body: |
+            Automated image bump from `backend-ci-cd` after push to `main`.
+
+            Merge after review; Argo CD will sync `dev` from Kustomize.

@@ -1,0 +1,34 @@
+name: Kubernetes manifests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infrastructure/k8s/**"
+      - ".github/workflows/k8s-manifests.yml"
+  pull_request:
+    paths:
+      - "infrastructure/k8s/**"
+      - ".github/workflows/k8s-manifests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  kustomize-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - path: infrastructure/k8s/namespaces
+          - path: infrastructure/k8s/apps/hello-world/overlays/dev
+          - path: infrastructure/k8s/apps/hello-world/overlays/dev-with-prometheus
+          - path: infrastructure/k8s/apps/app-of-apps
+          - path: infrastructure/k8s/bootstrap
+    steps:
+      - uses: actions/checkout@v4
+      - uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: v5.4.3
+      - name: kustomize build
+        run: kustomize build "${{ matrix.path }}" >/dev/null

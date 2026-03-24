@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hello-world-dev
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/shellworlds/BRLBX4.0.git
+    targetRevision: main
+    path: infrastructure/k8s/apps/hello-world/overlays/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
