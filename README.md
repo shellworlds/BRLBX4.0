@@ -15,6 +15,7 @@ Cloud-native baseline for **Borel Sigma** (GCP, GKE, GitOps, GitHub Actions). La
 - Wiki bootstrap (first-time): `docs/wiki.md`
 - Terraform and GCP: `infrastructure/README.md`
 - Architecture diagram (text): `docs/architecture.md`
+- Day 3 delivery notes: `docs/day3-progress.md`
 - Argo CD bootstrap: `infrastructure/README.md` (“GitOps bootstrap”)
 - Monitoring (Prometheus / Loki): `infrastructure/k8s/monitoring/README.md`
 

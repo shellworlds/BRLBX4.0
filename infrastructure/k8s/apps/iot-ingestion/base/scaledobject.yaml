@@ -1,0 +1,20 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: iot-ingestion-so
+spec:
+  scaleTargetRef:
+    name: iot-ingestion
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  triggers:
+    - type: cpu
+      metadata:
+        type: Utilization
+        value: "70"
+    - type: prometheus
+      metadata:
+        serverAddress: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+        metricName: mqtt_ingest_velocity
+        query: rate(mqtt_ingest_messages_total{namespace=~".*"}[2m])
+        threshold: "30"

@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: energy-management-config
+data:
+  # Comma-separated Cloud SQL instance connections. Replace PROJECT/REGION/INSTANCE with real values.
+  # DSNs in secrets should use 127.0.0.1:5432 (kitchens) and 127.0.0.1:5433 (timescale) matching this map.
+  cloudsql_instances: "PROJECT:REGION:energy-pg=tcp:5432,PROJECT:REGION:energy-ts=tcp:5433"

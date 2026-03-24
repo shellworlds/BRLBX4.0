@@ -7,17 +7,32 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
 	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/metrics"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/vendor-ecosystem/internal/logic"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/vendor-ecosystem/internal/repo"
+	"github.com/shellworlds/BRLBX4.0/backend-services/services/vendor-ecosystem/internal/reports"
 )
 
-func NewRouter(store *repo.Store) *gin.Engine {
+type RouterConfig struct {
+	Store         *repo.Store
+	Daily         *repo.DailyVendorStore
+	InternalToken string
+	EnableSwagger bool
+}
+
+func NewRouter(cfg RouterConfig) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 	r.GET("/metrics", metrics.Handler())
+	if cfg.EnableSwagger {
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
+	store := cfg.Store
 	v1 := r.Group("/api/v1")
 
 	v1.POST("/vendors", func(c *gin.Context) {
@@ -169,6 +184,62 @@ func NewRouter(store *repo.Store) *gin.Engine {
 		}
 		c.JSON(http.StatusOK, gin.H{"items": items})
 	})
+
+	if cfg.Daily != nil {
+		v1.GET("/reports/vendor/:vendor_id", func(c *gin.Context) {
+			vid, err := reports.ParseVendorID(c.Param("vendor_id"))
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "vendor_id"})
+				return
+			}
+			fromS, toS := c.Query("from"), c.Query("to")
+			if fromS == "" || toS == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "from and to required (YYYY-MM-DD)"})
+				return
+			}
+			from, err := time.Parse("2006-01-02", fromS)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "from"})
+				return
+			}
+			to, err := time.Parse("2006-01-02", toS)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "to"})
+				return
+			}
+			items, err := cfg.Daily.List(c.Request.Context(), vid, from, to)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"items": items, "dashboard_hints": gin.H{"charts": []string{"meals", "revenue", "efficiency_stub"}}})
+		})
+
+		v1.POST("/internal/aggregate/daily", func(c *gin.Context) {
+			if cfg.InternalToken == "" {
+				c.JSON(http.StatusServiceUnavailable, gin.H{"error": "internal aggregate disabled"})
+				return
+			}
+			if c.GetHeader("X-Internal-Token") != cfg.InternalToken {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "token"})
+				return
+			}
+			day := time.Now().UTC().AddDate(0, 0, -1)
+			if d := c.Query("day"); d != "" {
+				parsed, err := time.Parse("2006-01-02", d)
+				if err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "day"})
+					return
+				}
+				day = parsed
+			}
+			if err := reports.RunDailyVendorAggregate(c.Request.Context(), store, cfg.Daily, day); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"status": "ok", "day": day.Format("2006-01-02")})
+		})
+	}
 
 	return r
 }

@@ -1,0 +1,14 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: ml-predictor-so
+spec:
+  scaleTargetRef:
+    name: ml-predictor
+  minReplicaCount: 1
+  maxReplicaCount: 6
+  triggers:
+    - type: cpu
+      metadata:
+        type: Utilization
+        value: "70"

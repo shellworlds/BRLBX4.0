@@ -5,6 +5,9 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
 	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/auth"
 	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/metrics"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/auth-rbac/internal/repo"
@@ -14,6 +17,7 @@ type RouterConfig struct {
 	Validator     *auth.Validator
 	WebhookSecret string
 	Store         *repo.Store
+	EnableSwagger bool
 }
 
 func NewRouter(cfg RouterConfig) *gin.Engine {
@@ -21,6 +25,9 @@ func NewRouter(cfg RouterConfig) *gin.Engine {
 	r.Use(gin.Recovery())
 	r.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 	r.GET("/metrics", metrics.Handler())
+	if cfg.EnableSwagger {
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
 	v1 := r.Group("/api/v1")
 

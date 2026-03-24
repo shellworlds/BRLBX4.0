@@ -10,6 +10,7 @@ Go microservices for **Borel Sigma** with shared packages under `pkg/`.
 | `services/vendor-ecosystem` | Vendors, financing, transactions | PostgreSQL |
 | `services/iot-ingestion` | MQTT telemetry ingest, raw archive, offline alerts | TimescaleDB (raw) + PostgreSQL (alerts) |
 | `services/auth-rbac` | Auth0 JWT validation, user sync webhook, RBAC surface | PostgreSQL |
+| `services/ml-predictor` | Stub ML inference (energy load curve, meal demand), optional Redis | optional Redis |
 | `services/hello-world` | Tiny health/metrics demo | none |
 
 ## Shared packages (`pkg/`)
@@ -20,6 +21,7 @@ Go microservices for **Borel Sigma** with shared packages under `pkg/`.
 - `pkg/metrics` — `/metrics` Gin handler (Prometheus)
 - `pkg/migrate` — `golang-migrate` runner against `migrations/` trees
 - `pkg/auth` — Auth0 JWKS validation + Gin middleware + admin header helper
+- `pkg/pgxutil` — small `Querier` interface shared with `pgxmock` tests
 
 ## Running locally
 
@@ -40,10 +42,14 @@ Each service reads `SERVICE_ROOT` (defaults to `.` locally; Docker sets `/app` w
 - `POSTGRES_KITCHEN_DSN`, `POSTGRES_TIMESCALE_DSN` (required)
 - `ADMIN_API_KEY` **or** `AUTH0_DOMAIN` + `AUTH0_AUDIENCE` for admin-only kitchen registration
 - `INGEST_BEARER_TOKEN` (optional) protects `POST /api/v1/kitchens/:id/readings`
+- `INTERNAL_AGGREGATE_TOKEN` enables `POST /api/v1/internal/aggregate/daily` (used by CronJob)
+- `ENABLE_SWAGGER` (default true) serves `/swagger/*`
 
 **vendor-ecosystem**
 
 - `POSTGRES_VENDOR_DSN`
+- `INTERNAL_AGGREGATE_TOKEN` for vendor daily rollup
+- `ENABLE_SWAGGER`
 
 **iot-ingestion**
 
@@ -53,12 +59,20 @@ Each service reads `SERVICE_ROOT` (defaults to `.` locally; Docker sets `/app` w
 - `MQTT_USERNAME`, `MQTT_PASSWORD` (optional)
 - `INGEST_BEARER_TOKEN` (must match energy service)
 - `SLACK_WEBHOOK_URL` (optional)
+- `ANOMALY_WINDOW` (default 20), `ANOMALY_SIGMA` (default 3), `ANOMALY_DISABLED` to turn off z-score alerts
+- `ENABLE_SWAGGER`
 
 **auth-rbac**
 
 - `POSTGRES_AUTH_DSN`
 - `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`
 - `AUTH0_SYNC_WEBHOOK_SECRET` (if empty, `/api/v1/users/sync` returns 503)
+- `ENABLE_SWAGGER`
+
+**ml-predictor**
+
+- Optional `REDIS_ADDR`, `REDIS_PASSWORD`, `REDIS_DB`, `REDIS_PREFIX` for prediction memoization
+- `ENABLE_SWAGGER`
 
 ## Migrations
 
@@ -86,17 +100,19 @@ go install github.com/swaggo/swag/cmd/swag@latest
 ```bash
 go test ./...
 go test -cover ./...
+bash scripts/check_coverage.sh   # default min 40% blended; override with COVERAGE_THRESHOLD=70
 ```
 
-Integration tests with `testcontainers-go` can be added per repository package; current coverage focuses on pure logic and handler auth gates.
+Long-running **Docker integration** flows (full MQTT + multi-DB) are documented for a future `docker compose` profile; `testcontainers-go` was not pinned here due to Go 1.22 / dependency drift—see `docs/day3-progress.md`.
 
 ## Kubernetes secrets (expected keys)
 
 Create SealedSecrets / ExternalSecrets with the same names referenced by manifests:
 
-- `energy-management-secrets`: `POSTGRES_KITCHEN_DSN`, `POSTGRES_TIMESCALE_DSN`, optional `ADMIN_API_KEY`, `INGEST_BEARER_TOKEN`, `AUTH0_*`
-- `vendor-ecosystem-secrets`: `POSTGRES_VENDOR_DSN`
+- `energy-management-secrets`: `POSTGRES_KITCHEN_DSN`, `POSTGRES_TIMESCALE_DSN`, optional `ADMIN_API_KEY`, `INGEST_BEARER_TOKEN`, `AUTH0_*`, `INTERNAL_AGGREGATE_TOKEN`
+- `vendor-ecosystem-secrets`: `POSTGRES_VENDOR_DSN`, `INTERNAL_AGGREGATE_TOKEN`
 - `iot-ingestion-secrets`: `POSTGRES_IOT_DSN`, `POSTGRES_IOT_TIMESCALE_DSN`, `ENERGY_SERVICE_URL`, `MQTT_BROKER_URL`, optional MQTT creds, `INGEST_BEARER_TOKEN`, `SLACK_WEBHOOK_URL`
 - `auth-rbac-secrets`: `POSTGRES_AUTH_DSN`, `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`, `AUTH0_SYNC_WEBHOOK_SECRET`
+- `ml-predictor-secrets`: optional Redis secrets if not using env literals
 
 Cloud SQL Auth Proxy sidecars should target these DSNs with `127.0.0.1` hosts (advanced overlays).

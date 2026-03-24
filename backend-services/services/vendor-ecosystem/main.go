@@ -1,3 +1,6 @@
+// @title Vendor Ecosystem API
+// @version 1.0
+// @BasePath /
 package main
 
 import (
@@ -16,6 +19,8 @@ import (
 	mig "github.com/shellworlds/BRLBX4.0/backend-services/pkg/migrate"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/vendor-ecosystem/internal/api"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/vendor-ecosystem/internal/repo"
+
+	_ "github.com/shellworlds/BRLBX4.0/backend-services/services/vendor-ecosystem/docs"
 )
 
 func main() {
@@ -44,7 +49,12 @@ func main() {
 	}
 	defer pool.Close()
 
-	r := api.NewRouter(&repo.Store{Pool: pool})
+	r := api.NewRouter(api.RouterConfig{
+		Store:         &repo.Store{DB: pool},
+		Daily:         &repo.DailyVendorStore{DB: pool},
+		InternalToken: config.GetString("INTERNAL_AGGREGATE_TOKEN"),
+		EnableSwagger: config.GetBool("ENABLE_SWAGGER", true),
+	})
 
 	addr := fmt.Sprintf(":%d", config.GetInt("PORT", 8080))
 	srv := &http.Server{Addr: addr, Handler: r, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second}

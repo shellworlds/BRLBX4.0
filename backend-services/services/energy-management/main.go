@@ -1,5 +1,6 @@
 // @title Energy Management API
 // @version 1.0
+// @BasePath /
 package main
 
 import (
@@ -20,6 +21,8 @@ import (
 	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/db"
 	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/logger"
 	mig "github.com/shellworlds/BRLBX4.0/backend-services/pkg/migrate"
+
+	_ "github.com/shellworlds/BRLBX4.0/backend-services/services/energy-management/docs"
 )
 
 func main() {
@@ -72,11 +75,14 @@ func main() {
 	}
 
 	r := api.NewRouter(api.RouterConfig{
-		Validator:    validator,
-		AdminKey:     config.GetString("ADMIN_API_KEY"),
-		IngestBearer: config.GetString("INGEST_BEARER_TOKEN"),
-		Kitchens:     &repo.KitchenStore{Pool: pgPool},
-		Readings:     &repo.ReadingStore{Pool: tsPool},
+		Validator:     validator,
+		AdminKey:      config.GetString("ADMIN_API_KEY"),
+		IngestBearer:  config.GetString("INGEST_BEARER_TOKEN"),
+		Kitchens:      &repo.KitchenStore{DB: pgPool},
+		Readings:      &repo.ReadingStore{DB: tsPool},
+		Reports:       &repo.DailyReportStore{DB: pgPool},
+		InternalToken: config.GetString("INTERNAL_AGGREGATE_TOKEN"),
+		EnableSwagger: config.GetBool("ENABLE_SWAGGER", true),
 	})
 
 	addr := fmt.Sprintf(":%d", config.GetInt("PORT", 8080))

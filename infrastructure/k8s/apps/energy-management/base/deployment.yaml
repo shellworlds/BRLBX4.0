@@ -50,3 +50,27 @@ spec:
             limits:
               cpu: "1"
               memory: 512Mi
+        - name: cloud-sql-proxy
+          image: gcr.io/cloudsql-docker/gce-proxy:1.37.2
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - exec /cloud_sql_proxy -ip_address_types=PRIVATE -instances="$CLOUDSQL_INSTANCES"
+          env:
+            - name: CLOUDSQL_INSTANCES
+              valueFrom:
+                configMapKeyRef:
+                  name: energy-management-config
+                  key: cloudsql_instances
+                  optional: true
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: "300m"
+              memory: 256Mi

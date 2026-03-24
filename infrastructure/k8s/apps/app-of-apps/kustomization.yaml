@@ -3,8 +3,13 @@ kind: Kustomization
 resources:
   - namespaces-app.yaml
   - hello-world-dev.yaml
+  - keda-dev.yaml
+  - emqx-dev.yaml
   - energy-management-dev.yaml
+  - energy-management-staging.yaml
+  - energy-management-prod.yaml
   - vendor-ecosystem-dev.yaml
   - iot-ingestion-dev.yaml
   - auth-rbac-dev.yaml
+  - ml-predictor-dev.yaml
   - sealed-secrets-app.yaml

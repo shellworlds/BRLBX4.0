@@ -5,12 +5,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
 	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/metrics"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/iot-ingestion/internal/repo"
 )
 
 type RouterConfig struct {
-	Store *repo.Store
+	Store         *repo.Store
+	EnableSwagger bool
 }
 
 func NewRouter(cfg RouterConfig) *gin.Engine {
@@ -18,6 +22,9 @@ func NewRouter(cfg RouterConfig) *gin.Engine {
 	r.Use(gin.Recovery())
 	r.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 	r.GET("/metrics", metrics.Handler())
+	if cfg.EnableSwagger {
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
 	v1 := r.Group("/api/v1")
 	v1.GET("/alerts", func(c *gin.Context) {

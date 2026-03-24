@@ -16,3 +16,4 @@ docker-all:
 	docker build -f services/vendor-ecosystem/Dockerfile -t vendor-ecosystem:$(TAG) .
 	docker build -f services/iot-ingestion/Dockerfile -t iot-ingestion:$(TAG) .
 	docker build -f services/auth-rbac/Dockerfile -t auth-rbac:$(TAG) .
+	docker build -f services/ml-predictor/Dockerfile -t ml-predictor:$(TAG) .

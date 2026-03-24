@@ -12,12 +12,14 @@ import (
 
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
+	"github.com/shellworlds/BRLBX4.0/backend-services/services/iot-ingestion/internal/anomaly"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/iot-ingestion/internal/energy"
+	"github.com/shellworlds/BRLBX4.0/backend-services/services/iot-ingestion/internal/mqttmetrics"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/iot-ingestion/internal/repo"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/iot-ingestion/internal/watchdog"
 )
 
-func startMQTT(ctx context.Context, broker, clientID, user, pass, topic string, st *repo.Store, ec *energy.Client, tr *watchdog.Tracker, slackURL string) error {
+func startMQTT(ctx context.Context, broker, clientID, user, pass, topic string, st *repo.Store, ec *energy.Client, tr *watchdog.Tracker, slackURL string, anom *anomaly.Engine) error {
 	opts := MQTT.NewClientOptions().
 		AddBroker(broker).
 		SetClientID(clientID).
@@ -49,6 +51,17 @@ func startMQTT(ctx context.Context, broker, clientID, user, pass, topic string, 
 		}
 		if err := ec.PostReading(context.Background(), kitchenID, reading); err != nil {
 			log.Printf("iot: energy forward: %v", err)
+		}
+		mqttmetrics.IngestMessages.Inc()
+		if anom != nil {
+			if fire, why := anom.Observe(kitchenID, reading.GridPower); fire {
+				mqttmetrics.AnomalyAlerts.Inc()
+				if err := st.InsertAlert(context.Background(), kitchenID, "anomaly", why); err != nil {
+					log.Printf("iot: anomaly alert: %v", err)
+				} else {
+					postSlack(slackURL, fmt.Sprintf("anomaly kitchen=%s %s", kitchenID, why))
+				}
+			}
 		}
 		tr.Seen(kitchenID, time.Now().UTC())
 	}

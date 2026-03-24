@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: iot-ingestion-config
+data:
+  cloudsql_instances: "PROJECT:REGION:iot-pg=tcp:5432,PROJECT:REGION:iot-ts=tcp:5433"
+  # In-cluster EMQX (Argo app emqx-dev). Override per environment.
+  mqtt_broker_url: "tcp://emqx.emqx.svc.cluster.local:1883"

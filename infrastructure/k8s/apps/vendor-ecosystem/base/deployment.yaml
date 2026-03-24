@@ -24,6 +24,9 @@ spec:
             - name: SERVICE_ROOT
               value: /app
           envFrom:
+            - configMapRef:
+                name: vendor-ecosystem-config
+                optional: true
             - secretRef:
                 name: vendor-ecosystem-secrets
                 optional: true
@@ -35,3 +38,34 @@ spec:
             httpGet:
               path: /healthz
               port: http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+        - name: cloud-sql-proxy
+          image: gcr.io/cloudsql-docker/gce-proxy:1.37.2
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - exec /cloud_sql_proxy -ip_address_types=PRIVATE -instances="$CLOUDSQL_INSTANCES"
+          env:
+            - name: CLOUDSQL_INSTANCES
+              valueFrom:
+                configMapKeyRef:
+                  name: vendor-ecosystem-config
+                  key: cloudsql_instances
+                  optional: true
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: "300m"
+              memory: 256Mi

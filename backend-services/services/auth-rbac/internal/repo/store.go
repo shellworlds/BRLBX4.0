@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/pgxutil"
 )
 
 type User struct {
@@ -17,7 +17,7 @@ type User struct {
 }
 
 type Store struct {
-	Pool *pgxpool.Pool
+	DB pgxutil.Querier
 }
 
 func (s *Store) Upsert(ctx context.Context, u *User) error {
@@ -31,13 +31,13 @@ SET email=excluded.email,
     vendor_id=excluded.vendor_id,
     updated_at=now()
 RETURNING updated_at`
-	return s.Pool.QueryRow(ctx, q, u.Auth0ID, u.Email, u.Role, u.ClientID, u.VendorID).Scan(&u.UpdatedAt)
+	return s.DB.QueryRow(ctx, q, u.Auth0ID, u.Email, u.Role, u.ClientID, u.VendorID).Scan(&u.UpdatedAt)
 }
 
 func (s *Store) GetByAuth0(ctx context.Context, auth0ID string) (*User, error) {
 	const q = `SELECT auth0_id, email, role, client_id, vendor_id, updated_at FROM users WHERE auth0_id=$1`
 	var u User
-	if err := s.Pool.QueryRow(ctx, q, auth0ID).Scan(&u.Auth0ID, &u.Email, &u.Role, &u.ClientID, &u.VendorID, &u.UpdatedAt); err != nil {
+	if err := s.DB.QueryRow(ctx, q, auth0ID).Scan(&u.Auth0ID, &u.Email, &u.Role, &u.ClientID, &u.VendorID, &u.UpdatedAt); err != nil {
 		return nil, err
 	}
 	return &u, nil

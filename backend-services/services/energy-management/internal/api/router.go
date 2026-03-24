@@ -6,9 +6,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
 	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/auth"
 	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/metrics"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/energy-management/internal/repo"
+	"github.com/shellworlds/BRLBX4.0/backend-services/services/energy-management/internal/reports"
 )
 
 type RouterConfig struct {
@@ -18,6 +22,10 @@ type RouterConfig struct {
 	IngestBearer string
 	Kitchens     *repo.KitchenStore
 	Readings     *repo.ReadingStore
+	Reports      *repo.DailyReportStore
+	// InternalToken protects POST /internal/aggregate/daily (CronJob / GitOps).
+	InternalToken string
+	EnableSwagger bool
 }
 
 // NewRouter wires HTTP routes for energy management.
@@ -26,6 +34,9 @@ func NewRouter(cfg RouterConfig) *gin.Engine {
 	r.Use(gin.Recovery())
 	r.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 	r.GET("/metrics", metrics.Handler())
+	if cfg.EnableSwagger {
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
 	v1 := r.Group("/api/v1")
 
@@ -44,7 +55,82 @@ func NewRouter(cfg RouterConfig) *gin.Engine {
 	v1.POST("/kitchens/:id/readings", postReading(cfg))
 	v1.GET("/kitchens/:id/controller", getController(cfg))
 
+	if cfg.Reports != nil {
+		v1.GET("/reports/client/:client_id", getClientReports(cfg))
+	}
+	if cfg.Kitchens != nil && cfg.Readings != nil && cfg.Reports != nil {
+		v1.POST("/internal/aggregate/daily", postInternalDailyAggregate(cfg))
+	}
+
 	return r
+}
+
+// getClientReports godoc
+// @Summary List daily client ESG / energy reports
+// @Param client_id path string true "Client UUID (vendor)"
+// @Param from query string true "YYYY-MM-DD"
+// @Param to query string true "YYYY-MM-DD"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/reports/client/{client_id} [get]
+func getClientReports(cfg RouterConfig) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		cid := c.Param("client_id")
+		if _, err := reports.ParseClientID(cid); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "client_id"})
+			return
+		}
+		fromS, toS := c.Query("from"), c.Query("to")
+		if fromS == "" || toS == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "from and to required (YYYY-MM-DD)"})
+			return
+		}
+		from, err := time.Parse("2006-01-02", fromS)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "from"})
+			return
+		}
+		to, err := time.Parse("2006-01-02", toS)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "to"})
+			return
+		}
+		items, err := cfg.Reports.List(c.Request.Context(), cid, from, to)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"items": items, "format": "json", "note": "Frontend may chart payload fields; PDF export is Day-4 UI."})
+	}
+}
+
+// postInternalDailyAggregate triggers rollup for "yesterday" UTC unless ?day=YYYY-MM-DD.
+// @Summary Run daily aggregate (internal)
+// @Router /api/v1/internal/aggregate/daily [post]
+func postInternalDailyAggregate(cfg RouterConfig) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if cfg.InternalToken == "" {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "internal aggregate disabled"})
+			return
+		}
+		if c.GetHeader("X-Internal-Token") != cfg.InternalToken {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "token"})
+			return
+		}
+		day := time.Now().UTC().AddDate(0, 0, -1)
+		if d := c.Query("day"); d != "" {
+			parsed, err := time.Parse("2006-01-02", d)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "day"})
+				return
+			}
+			day = parsed
+		}
+		if err := reports.RunDailyClientAggregate(c.Request.Context(), cfg.Kitchens, cfg.Readings, cfg.Reports, day); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "day": day.Format("2006-01-02")})
+	}
 }
 
 type createKitchenReq struct {

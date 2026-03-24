@@ -1,0 +1,7 @@
+basePath: /
+info:
+  contact: {}
+  title: Vendor Ecosystem API
+  version: "1.0"
+paths: {}
+swagger: "2.0"

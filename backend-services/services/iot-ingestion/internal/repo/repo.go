@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/pgxutil"
 )
 
 type Store struct {
-	PG *pgxpool.Pool
-	TS *pgxpool.Pool
+	PG pgxutil.Querier
+	TS pgxutil.Querier
 }
 
 func (s *Store) InsertRaw(ctx context.Context, kitchen uuid.UUID, topic string, payload json.RawMessage) error {

@@ -1,0 +1,36 @@
+basePath: /
+info:
+  contact: {}
+  title: Energy Management API
+  version: "1.0"
+paths:
+  /api/v1/internal/aggregate/daily:
+    post:
+      responses: {}
+      summary: Run daily aggregate (internal)
+  /api/v1/reports/client/{client_id}:
+    get:
+      parameters:
+      - description: Client UUID (vendor)
+        in: path
+        name: client_id
+        required: true
+        type: string
+      - description: YYYY-MM-DD
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: YYYY-MM-DD
+        in: query
+        name: to
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List daily client ESG / energy reports
+swagger: "2.0"

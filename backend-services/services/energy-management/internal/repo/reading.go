@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/pgxutil"
 )
 
 type EnergyReading struct {
@@ -20,10 +20,13 @@ type EnergyReading struct {
 }
 
 type ReadingStore struct {
-	Pool *pgxpool.Pool
+	DB pgxutil.Querier
 }
 
 func (s *ReadingStore) Insert(ctx context.Context, r *EnergyReading) error {
+	if s.DB == nil {
+		return fmt.Errorf("nil db")
+	}
 	if r == nil {
 		return fmt.Errorf("nil reading")
 	}
@@ -33,7 +36,7 @@ func (s *ReadingStore) Insert(ctx context.Context, r *EnergyReading) error {
 	const q = `
 INSERT INTO energy_readings (kitchen_id, ts, grid_power, battery_power, solar_power, lpg_status, uptime_percent)
 VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	_, err := s.Pool.Exec(ctx, q, r.KitchenID, r.TS, r.GridPower, r.BatteryPower, r.SolarPower, r.LPGStatus, r.UptimePct)
+	_, err := s.DB.Exec(ctx, q, r.KitchenID, r.TS, r.GridPower, r.BatteryPower, r.SolarPower, r.LPGStatus, r.UptimePct)
 	return err
 }
 
@@ -43,7 +46,7 @@ SELECT kitchen_id, ts, grid_power, battery_power, solar_power, lpg_status, uptim
 FROM energy_readings
 WHERE kitchen_id=$1 AND ts >= $2 AND ts <= $3
 ORDER BY ts ASC`
-	rows, err := s.Pool.Query(ctx, q, kitchen, from, to)
+	rows, err := s.DB.Query(ctx, q, kitchen, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +69,7 @@ SELECT COALESCE(AVG(uptime_percent), 0)::float8
 FROM energy_readings
 WHERE kitchen_id=$1 AND ts >= $2 AND ts <= $3`
 	var v float64
-	if err := s.Pool.QueryRow(ctx, q, kitchen, from, to).Scan(&v); err != nil {
+	if err := s.DB.QueryRow(ctx, q, kitchen, from, to).Scan(&v); err != nil {
 		return 0, err
 	}
 	return v, nil
@@ -79,7 +82,7 @@ SELECT COALESCE(AVG(grid_power), 0)::float8
 FROM energy_readings
 WHERE kitchen_id=$1 AND ts >= $2 AND ts <= $3`
 	var v float64
-	if err := s.Pool.QueryRow(ctx, q, kitchen, from, to).Scan(&v); err != nil {
+	if err := s.DB.QueryRow(ctx, q, kitchen, from, to).Scan(&v); err != nil {
 		return 0, err
 	}
 	return v, nil

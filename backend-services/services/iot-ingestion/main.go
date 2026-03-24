@@ -1,3 +1,6 @@
+// @title IoT Ingestion API
+// @version 1.0
+// @BasePath /
 package main
 
 import (
@@ -14,10 +17,13 @@ import (
 	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/db"
 	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/logger"
 	mig "github.com/shellworlds/BRLBX4.0/backend-services/pkg/migrate"
+	"github.com/shellworlds/BRLBX4.0/backend-services/services/iot-ingestion/internal/anomaly"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/iot-ingestion/internal/api"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/iot-ingestion/internal/energy"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/iot-ingestion/internal/repo"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/iot-ingestion/internal/watchdog"
+
+	_ "github.com/shellworlds/BRLBX4.0/backend-services/services/iot-ingestion/docs"
 )
 
 func main() {
@@ -77,11 +83,18 @@ func main() {
 	user := config.GetString("MQTT_USERNAME")
 	pass := config.GetString("MQTT_PASSWORD")
 
-	if err := startMQTT(ctx, broker, clientID, user, pass, topic, st, ec, tr, config.GetString("SLACK_WEBHOOK_URL")); err != nil {
+	anom := anomaly.New(config.GetInt("ANOMALY_WINDOW", 20), config.GetFloat64("ANOMALY_SIGMA", 3))
+	if config.GetBool("ANOMALY_DISABLED", false) {
+		anom = nil
+	}
+	if err := startMQTT(ctx, broker, clientID, user, pass, topic, st, ec, tr, config.GetString("SLACK_WEBHOOK_URL"), anom); err != nil {
 		sugar.Fatalw("mqtt", "error", err)
 	}
 
-	r := api.NewRouter(api.RouterConfig{Store: st})
+	r := api.NewRouter(api.RouterConfig{
+		Store:         st,
+		EnableSwagger: config.GetBool("ENABLE_SWAGGER", true),
+	})
 	addr := fmt.Sprintf(":%d", config.GetInt("PORT", 8080))
 	srv := &http.Server{Addr: addr, Handler: r, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second}
 

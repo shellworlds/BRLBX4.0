@@ -41,3 +41,11 @@ func GetBool(key string, def bool) bool {
 	}
 	return viper.GetBool(key)
 }
+
+// GetFloat64 returns viper float64 with default.
+func GetFloat64(key string, def float64) float64 {
+	if !viper.IsSet(key) {
+		return def
+	}
+	return viper.GetFloat64(key)
+}

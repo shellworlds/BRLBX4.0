@@ -1,3 +1,6 @@
+// @title Auth RBAC API
+// @version 1.0
+// @BasePath /
 package main
 
 import (
@@ -17,6 +20,8 @@ import (
 	mig "github.com/shellworlds/BRLBX4.0/backend-services/pkg/migrate"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/auth-rbac/internal/api"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/auth-rbac/internal/repo"
+
+	_ "github.com/shellworlds/BRLBX4.0/backend-services/services/auth-rbac/docs"
 )
 
 func main() {
@@ -54,7 +59,8 @@ func main() {
 	r := api.NewRouter(api.RouterConfig{
 		Validator:     validator,
 		WebhookSecret: config.GetString("AUTH0_SYNC_WEBHOOK_SECRET"),
-		Store:         &repo.Store{Pool: pool},
+		Store:         &repo.Store{DB: pool},
+		EnableSwagger: config.GetBool("ENABLE_SWAGGER", true),
 	})
 
 	addr := fmt.Sprintf(":%d", config.GetInt("PORT", 8080))

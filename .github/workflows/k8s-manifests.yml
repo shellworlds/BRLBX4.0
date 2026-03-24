@@ -28,6 +28,9 @@ jobs:
           - path: infrastructure/k8s/apps/iot-ingestion/overlays/dev
           - path: infrastructure/k8s/apps/auth-rbac/overlays/dev
           - path: infrastructure/k8s/apps/app-of-apps
+          - path: infrastructure/k8s/apps/ml-predictor/overlays/dev
+          - path: infrastructure/k8s/apps/ml-predictor/overlays/staging
+          - path: infrastructure/k8s/apps/ml-predictor/overlays/prod
           - path: infrastructure/k8s/bootstrap
     steps:
       - uses: actions/checkout@v4

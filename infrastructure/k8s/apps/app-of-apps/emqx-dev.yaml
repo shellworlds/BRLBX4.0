@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: emqx-dev
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://repos.emqx.io/charts
+    chart: emqx
+    targetRevision: 5.8.3
+    helm:
+      values: |
+        replicaCount: 1
+        service:
+          type: ClusterIP
+        persistence:
+          enabled: true
+          size: 8Gi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: emqx
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
