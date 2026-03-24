@@ -9,6 +9,9 @@ The repository has **Wiki** enabled. GitHub creates the wiki Git endpoint the fi
    - `infrastructure/README.md` (ops)
    - `docs/architecture.md` (diagram)
    - `docs/day5-progress.md` (Day 5 payments/compliance/security status)
+   - `docs/day6-progress.md` (Day 6 E2E, load tests, Connect, ingress)
+   - `docs/runbooks/` (Auth0, Stripe Connect, DR)
+   - `docs/day7-launch-checklist.md`
 
 Advanced contributors can clone the wiki repository:
 
