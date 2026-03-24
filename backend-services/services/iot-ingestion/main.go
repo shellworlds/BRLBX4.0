@@ -91,9 +91,31 @@ func main() {
 		sugar.Fatalw("mqtt", "error", err)
 	}
 
+	var caCert, caKey []byte
+	if p := config.GetString("IOT_DEVICE_CA_CERT_FILE"); p != "" {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			sugar.Fatalw("read IOT_DEVICE_CA_CERT_FILE", "error", err)
+		}
+		caCert = b
+	}
+	if p := config.GetString("IOT_DEVICE_CA_KEY_FILE"); p != "" {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			sugar.Fatalw("read IOT_DEVICE_CA_KEY_FILE", "error", err)
+		}
+		caKey = b
+	}
+	if (len(caCert) > 0) != (len(caKey) > 0) {
+		sugar.Fatalw("IOT_DEVICE_CA_CERT_FILE and IOT_DEVICE_CA_KEY_FILE must both be set or both omitted")
+	}
+
 	r := api.NewRouter(api.RouterConfig{
-		Store:         st,
-		EnableSwagger: config.GetBool("ENABLE_SWAGGER", true),
+		Store:               st,
+		EnableSwagger:       config.GetBool("ENABLE_SWAGGER", true),
+		InternalDeviceToken: config.GetString("INTERNAL_DEVICE_TOKEN"),
+		DeviceCACert:        caCert,
+		DeviceCAKey:         caKey,
 	})
 	addr := fmt.Sprintf(":%d", config.GetInt("PORT", 8080))
 	srv := &http.Server{Addr: addr, Handler: r, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second}

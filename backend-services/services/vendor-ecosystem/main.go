@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/auth"
 	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/config"
 	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/db"
 	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/logger"
@@ -49,11 +50,21 @@ func main() {
 	}
 	defer pool.Close()
 
+	var validator *auth.Validator
+	if dom := config.GetString("AUTH0_DOMAIN"); dom != "" {
+		validator = auth.NewValidator(auth.Config{
+			Domain:   dom,
+			Audience: config.GetString("AUTH0_AUDIENCE"),
+		})
+	}
+
 	r := api.NewRouter(api.RouterConfig{
-		Store:         &repo.Store{DB: pool},
-		Daily:         &repo.DailyVendorStore{DB: pool},
-		InternalToken: config.GetString("INTERNAL_AGGREGATE_TOKEN"),
-		EnableSwagger: config.GetBool("ENABLE_SWAGGER", true),
+		Store:          &repo.Store{DB: pool},
+		Daily:          &repo.DailyVendorStore{DB: pool},
+		InternalToken:  config.GetString("INTERNAL_AGGREGATE_TOKEN"),
+		EnableSwagger:  config.GetBool("ENABLE_SWAGGER", true),
+		Validator:      validator,
+		PlatformFeeBPS: config.GetInt("PLATFORM_FEE_BPS", 500),
 	})
 
 	addr := fmt.Sprintf(":%d", config.GetInt("PORT", 8080))

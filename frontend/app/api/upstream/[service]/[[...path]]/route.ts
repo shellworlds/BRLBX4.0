@@ -3,7 +3,15 @@ import { getAccessToken } from "@auth0/nextjs-auth0";
 
 export const dynamic = "force-dynamic";
 
-const allowed = new Set(["energy", "vendor", "iot", "auth", "ml"]);
+const allowed = new Set([
+  "energy",
+  "vendor",
+  "iot",
+  "auth",
+  "ml",
+  "payments",
+  "compliance",
+]);
 
 function baseFor(service: string): string | undefined {
   const map: Record<string, string | undefined> = {
@@ -12,6 +20,8 @@ function baseFor(service: string): string | undefined {
     iot: process.env.IOT_SERVICE_URL,
     auth: process.env.AUTH_SERVICE_URL,
     ml: process.env.ML_SERVICE_URL,
+    payments: process.env.PAYMENTS_SERVICE_URL,
+    compliance: process.env.COMPLIANCE_SERVICE_URL,
   };
   const b = map[service];
   return b?.replace(/\/$/, "");
@@ -44,7 +54,13 @@ async function proxy(
 
   let accessToken: string | undefined;
   const publicPath =
-    path.includes("/public/") || path === "/healthz" || path === "/metrics";
+    path.includes("/public/") ||
+    path === "/healthz" ||
+    path === "/metrics" ||
+    (service === "payments" && path.startsWith("/api/v1/webhooks/")) ||
+    (service === "compliance" &&
+      path === "/api/v1/contact" &&
+      req.method === "POST");
   if (!publicPath) {
     try {
       const t = await getAccessToken();

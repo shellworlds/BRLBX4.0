@@ -10,7 +10,7 @@ Next.js 14 (App Router) marketing site plus authenticated client, vendor, and ad
 
 ## Environment
 
-Copy `.env.example` to `.env.local`. Key variables: `AUTH0_SECRET`, `AUTH0_BASE_URL`, `AUTH0_ISSUER_BASE_URL`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, optional `AUTH0_AUDIENCE`, service URLs `ENERGY_SERVICE_URL`, `VENDOR_SERVICE_URL`, `IOT_SERVICE_URL`, `AUTH_SERVICE_URL`, `ML_SERVICE_URL`, and optional `DEV_*_URL` for local rewrites.
+Copy `.env.example` to `.env.local`. Key variables: `AUTH0_SECRET`, `AUTH0_BASE_URL`, `AUTH0_ISSUER_BASE_URL`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, optional `AUTH0_AUDIENCE`, service URLs `ENERGY_SERVICE_URL`, `VENDOR_SERVICE_URL`, `IOT_SERVICE_URL`, `AUTH_SERVICE_URL`, `ML_SERVICE_URL`, `PAYMENTS_SERVICE_URL`, `COMPLIANCE_SERVICE_URL` (also used by `/api/contact`), and optional `DEV_*_URL` for local rewrites.
 
 ## Local development
 

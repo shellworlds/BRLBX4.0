@@ -31,6 +31,12 @@ jobs:
           - path: infrastructure/k8s/apps/ml-predictor/overlays/dev
           - path: infrastructure/k8s/apps/ml-predictor/overlays/staging
           - path: infrastructure/k8s/apps/ml-predictor/overlays/prod
+          - path: infrastructure/k8s/apps/payments/overlays/dev
+          - path: infrastructure/k8s/apps/payments/overlays/staging
+          - path: infrastructure/k8s/apps/payments/overlays/prod
+          - path: infrastructure/k8s/apps/compliance/overlays/dev
+          - path: infrastructure/k8s/apps/compliance/overlays/staging
+          - path: infrastructure/k8s/apps/compliance/overlays/prod
           - path: infrastructure/k8s/apps/frontend/overlays/dev
           - path: infrastructure/k8s/apps/frontend/overlays/staging
           - path: infrastructure/k8s/apps/frontend/overlays/prod

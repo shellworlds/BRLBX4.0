@@ -11,6 +11,8 @@ Go microservices for **Borel Sigma** with shared packages under `pkg/`.
 | `services/iot-ingestion` | MQTT telemetry ingest, raw archive, offline alerts | TimescaleDB (raw) + PostgreSQL (alerts) |
 | `services/auth-rbac` | Auth0 JWT validation, user sync webhook, RBAC surface | PostgreSQL |
 | `services/ml-predictor` | Stub ML inference (energy load curve, meal demand), optional Redis | optional Redis |
+| `services/payments` | Stripe subscriptions, webhooks, carbon purchases, internal meal records | PostgreSQL |
+| `services/compliance` | Consent, audit log, GDPR deletion queue, contact CRM + SMTP | PostgreSQL |
 | `services/hello-world` | Tiny health/metrics demo | none |
 
 ## Shared packages (`pkg/`)
@@ -60,6 +62,8 @@ Each service reads `SERVICE_ROOT` (defaults to `.` locally; Docker sets `/app` w
 - `INGEST_BEARER_TOKEN` (must match energy service)
 - `SLACK_WEBHOOK_URL` (optional)
 - `ANOMALY_WINDOW` (default 20), `ANOMALY_SIGMA` (default 3), `ANOMALY_DISABLED` to turn off z-score alerts
+- `INTERNAL_DEVICE_TOKEN` — enables `POST /api/v1/internal/devices/register`
+- `IOT_DEVICE_CA_CERT_FILE`, `IOT_DEVICE_CA_KEY_FILE` — optional PEM paths for signing device CSRs (both required if either set)
 - `ENABLE_SWAGGER`
 
 **auth-rbac**
@@ -73,6 +77,19 @@ Each service reads `SERVICE_ROOT` (defaults to `.` locally; Docker sets `/app` w
 
 - Optional `REDIS_ADDR`, `REDIS_PASSWORD`, `REDIS_DB`, `REDIS_PREFIX` for prediction memoization
 - `ENABLE_SWAGGER`
+
+**payments**
+
+- `POSTGRES_PAYMENTS_DSN`
+- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_DEFAULT_PRICE_ID` (subscription price)
+- `INTERNAL_PAYMENTS_TOKEN` — protects internal meal recording from vendor-ecosystem
+- `AUTH0_DOMAIN`, `AUTH0_AUDIENCE` (JWT routes)
+
+**compliance**
+
+- `POSTGRES_COMPLIANCE_DSN`
+- `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`
+- Optional SMTP: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SALES_NOTIFY_EMAIL` (defaults to sales@borelsigma.com)
 
 ## Migrations
 

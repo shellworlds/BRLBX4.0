@@ -16,7 +16,7 @@ const (
 )
 
 // RunDailyClientAggregate rolls the previous UTC calendar day's telemetry into daily_client_reports per vendor client_id.
-func RunDailyClientAggregate(ctx context.Context, kitchens *repo.KitchenStore, readings *repo.ReadingStore, reports *repo.DailyReportStore, dayUTC time.Time) error {
+func RunDailyClientAggregate(ctx context.Context, kitchens *repo.KitchenStore, readings *repo.ReadingStore, reports *repo.DailyReportStore, factors *repo.EmissionFactorStore, dayUTC time.Time) error {
 	if kitchens == nil || readings == nil || reports == nil {
 		return fmt.Errorf("nil store")
 	}
@@ -34,7 +34,14 @@ func RunDailyClientAggregate(ctx context.Context, kitchens *repo.KitchenStore, r
 		}
 		var solarSum, gridSum, battSum, uptimeSum float64
 		var sampleCount int
+		var scope3 float64
 		for _, k := range kitch {
+			gridKg := gridEmissionsKgPerKWh
+			if factors != nil {
+				if g, err := factors.GridGPerKWh(ctx, k.Region); err == nil {
+					gridKg = g / 1000.0
+				}
+			}
 			rows, err := readings.List(ctx, k.ID, start, end)
 			if err != nil {
 				return err
@@ -45,6 +52,18 @@ func RunDailyClientAggregate(ctx context.Context, kitchens *repo.KitchenStore, r
 				battSum += r.BatteryPower
 				uptimeSum += r.UptimePct
 				sampleCount++
+
+				d := r.SolarPower + r.GridPower + r.BatteryPower
+				if d <= 0 {
+					continue
+				}
+				sS := r.SolarPower / d
+				gS := r.GridPower / d
+				assumeKWh := d * 1.0 // kW sample as rough energy proxy (stub)
+				rawKg := assumeKWh * (sS*solarAvoidedKgPerKWh - gS*gridKg)
+				if rawKg > 0 {
+					scope3 += rawKg / 1000.0
+				}
 			}
 		}
 		denomPL := solarSum + gridSum + battSum
@@ -57,12 +76,6 @@ func RunDailyClientAggregate(ctx context.Context, kitchens *repo.KitchenStore, r
 		var uptimeAvg float64
 		if sampleCount > 0 {
 			uptimeAvg = uptimeSum / float64(sampleCount)
-		}
-		assumeKWh := denomPL * 1.0 // treat summed kW samples as a rough daily energy proxy (stub)
-		rawKg := assumeKWh * (solarShare*solarAvoidedKgPerKWh - gridShare*gridEmissionsKgPerKWh)
-		scope3 := rawKg / 1000.0
-		if scope3 < 0 {
-			scope3 = 0
 		}
 
 		payload, _ := json.Marshal(map[string]any{

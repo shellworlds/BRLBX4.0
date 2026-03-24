@@ -12,6 +12,12 @@ resources:
   - iot-ingestion-dev.yaml
   - auth-rbac-dev.yaml
   - ml-predictor-dev.yaml
+  - payments-dev.yaml
+  - payments-staging.yaml
+  - payments-prod.yaml
+  - compliance-dev.yaml
+  - compliance-staging.yaml
+  - compliance-prod.yaml
   - frontend-dev.yaml
   - frontend-staging.yaml
   - frontend-prod.yaml

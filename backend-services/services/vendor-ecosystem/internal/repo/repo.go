@@ -12,12 +12,14 @@ import (
 )
 
 type Vendor struct {
-	ID             uuid.UUID `json:"id"`
-	Name           string    `json:"name"`
-	FSSAIScore     int       `json:"fssai_score"`
-	Location       string    `json:"location"`
-	Contact        string    `json:"contact"`
-	OnboardingDate time.Time `json:"onboarding_date"`
+	ID                     uuid.UUID `json:"id"`
+	Name                   string    `json:"name"`
+	FSSAIScore             int       `json:"fssai_score"`
+	Location               string    `json:"location"`
+	Contact                string    `json:"contact"`
+	OnboardingDate         time.Time `json:"onboarding_date"`
+	Region                 string    `json:"region"`
+	StripeConnectAccountID *string   `json:"stripe_connect_account_id,omitempty"`
 }
 
 type Financing struct {
@@ -49,9 +51,13 @@ func (s *Store) CreateVendor(ctx context.Context, v *Vendor) error {
 }
 
 func (s *Store) GetVendor(ctx context.Context, id uuid.UUID) (*Vendor, error) {
-	const q = `SELECT id, name, fssai_score, location, contact, onboarding_date FROM vendors WHERE id=$1`
+	const q = `
+SELECT id, name, fssai_score, location, contact, onboarding_date, region, stripe_connect_account_id
+FROM vendors WHERE id=$1`
 	var v Vendor
-	if err := s.DB.QueryRow(ctx, q, id).Scan(&v.ID, &v.Name, &v.FSSAIScore, &v.Location, &v.Contact, &v.OnboardingDate); err != nil {
+	if err := s.DB.QueryRow(ctx, q, id).Scan(
+		&v.ID, &v.Name, &v.FSSAIScore, &v.Location, &v.Contact, &v.OnboardingDate, &v.Region, &v.StripeConnectAccountID,
+	); err != nil {
 		return nil, err
 	}
 	return &v, nil

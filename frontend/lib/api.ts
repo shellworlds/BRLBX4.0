@@ -1,6 +1,13 @@
 import { toast } from "sonner";
 
-export type ServiceName = "energy" | "vendor" | "iot" | "auth" | "ml";
+export type ServiceName =
+  | "energy"
+  | "vendor"
+  | "iot"
+  | "auth"
+  | "ml"
+  | "payments"
+  | "compliance";
 
 /** Browser-side path to the authenticated BFF proxy. */
 export function upstreamPath(service: ServiceName, apiPath: string): string {
@@ -72,6 +79,13 @@ export const energyApi = {
       "energy",
       `/api/v1/reports/client/${clientId}?from=${from}&to=${to}`,
     ),
+  ghgReport: (clientId: string, from: string, to: string, region?: string) => {
+    const r = region ? `&region=${encodeURIComponent(region)}` : "";
+    return fetchJSON<unknown>(
+      "energy",
+      `/api/v1/reports/ghg?client_id=${encodeURIComponent(clientId)}&from=${from}&to=${to}${r}`,
+    );
+  },
   kitchensByVendor: (vendorId: string) =>
     fetchJSON<{ items: Kitchen[] }>(
       "energy",
@@ -98,6 +112,13 @@ export const vendorApi = {
     ),
   getVendor: (vendorId: string) =>
     fetchJSON<VendorRecord>("vendor", `/api/v1/vendors/${vendorId}`),
+  myWallet: () => fetchJSON<unknown>("vendor", "/api/v1/vendors/me/wallet"),
+  requestWalletWithdraw: (amount: number) =>
+    fetchUpstream("vendor", "/api/v1/vendors/me/wallet/withdraw", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount }),
+    }).then((r) => r.json()),
 };
 
 export const iotApi = {
@@ -108,6 +129,16 @@ export const iotApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     }).then((r) => r.json()),
+};
+
+export const paymentsApi = {
+  mySubscription: () =>
+    fetchJSON<unknown>("payments", "/api/v1/subscriptions/me"),
+};
+
+export const complianceApi = {
+  consentStatus: () =>
+    fetchJSON<unknown>("compliance", "/api/v1/consent/status"),
 };
 
 export const mlApi = {
@@ -137,6 +168,7 @@ export interface Kitchen {
   location: string;
   vendor_id: string;
   capacity_kw: number;
+  region?: string;
 }
 
 export interface Transaction {

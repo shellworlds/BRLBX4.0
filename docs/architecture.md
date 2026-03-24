@@ -23,6 +23,7 @@ Text diagram of the Day‑1 footprint on Google Cloud and GitHub.
 │  │   ├─ namespaces: dev / staging / prod / argocd / monitoring                  │  │
 │  │   ├─ Argo CD (GitOps) → App of Apps → per-service Applications               │  │
 │  │   ├─ hello-world (dev) + Prometheus metrics (/metrics)                       │  │
+│  │   ├─ payments + compliance (Stripe, GDPR/audit, contact)                     │  │
 │  │   ├─ Sealed Secrets controller                                               │  │
 │  │   └─ Monitoring: Prometheus/Grafana (Helm) + Loki/Promtail (Helm)           │  │
 │  └────────────────────────────────────────────────────────────────────────────┘  │

@@ -26,8 +26,8 @@ func TestStore_CreateVendor_GetVendor(t *testing.T) {
 	require.Equal(t, id, v.ID)
 
 	mock.ExpectQuery(`SELECT id, name`).WithArgs(id).WillReturnRows(
-		pgxmock.NewRows([]string{"id", "name", "fssai_score", "location", "contact", "onboarding_date"}).
-			AddRow(id, "n", 90, "L", "c", time.Now()))
+		pgxmock.NewRows([]string{"id", "name", "fssai_score", "location", "contact", "onboarding_date", "region", "stripe_connect_account_id"}).
+			AddRow(id, "n", 90, "L", "c", time.Now(), "global", nil))
 
 	got, err := s.GetVendor(ctx, id)
 	require.NoError(t, err)

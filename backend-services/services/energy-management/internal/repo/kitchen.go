@@ -14,6 +14,7 @@ type Kitchen struct {
 	Location   string    `json:"location"`
 	VendorID   uuid.UUID `json:"vendor_id"`
 	CapacityKW float64   `json:"capacity_kw"`
+	Region     string    `json:"region"`
 }
 
 type KitchenStore struct {
@@ -24,17 +25,20 @@ func (s *KitchenStore) Create(ctx context.Context, k *Kitchen) error {
 	if s.DB == nil {
 		return fmt.Errorf("nil db")
 	}
+	if k.Region == "" {
+		k.Region = "global"
+	}
 	const q = `
-INSERT INTO kitchens (name, location, vendor_id, capacity_kw)
-VALUES ($1, $2, $3, $4)
+INSERT INTO kitchens (name, location, vendor_id, capacity_kw, region)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING id`
-	return s.DB.QueryRow(ctx, q, k.Name, k.Location, k.VendorID, k.CapacityKW).Scan(&k.ID)
+	return s.DB.QueryRow(ctx, q, k.Name, k.Location, k.VendorID, k.CapacityKW, k.Region).Scan(&k.ID)
 }
 
 func (s *KitchenStore) Get(ctx context.Context, id uuid.UUID) (*Kitchen, error) {
-	const q = `SELECT id, name, location, vendor_id, capacity_kw FROM kitchens WHERE id=$1`
+	const q = `SELECT id, name, location, vendor_id, capacity_kw, region FROM kitchens WHERE id=$1`
 	var k Kitchen
-	err := s.DB.QueryRow(ctx, q, id).Scan(&k.ID, &k.Name, &k.Location, &k.VendorID, &k.CapacityKW)
+	err := s.DB.QueryRow(ctx, q, id).Scan(&k.ID, &k.Name, &k.Location, &k.VendorID, &k.CapacityKW, &k.Region)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +50,7 @@ func (s *KitchenStore) ListByVendor(ctx context.Context, vendor uuid.UUID) ([]Ki
 	if s.DB == nil {
 		return nil, fmt.Errorf("nil db")
 	}
-	const q = `SELECT id, name, location, vendor_id, capacity_kw FROM kitchens WHERE vendor_id=$1 ORDER BY created_at`
+	const q = `SELECT id, name, location, vendor_id, capacity_kw, region FROM kitchens WHERE vendor_id=$1 ORDER BY created_at`
 	rows, err := s.DB.Query(ctx, q, vendor)
 	if err != nil {
 		return nil, err
@@ -55,7 +59,7 @@ func (s *KitchenStore) ListByVendor(ctx context.Context, vendor uuid.UUID) ([]Ki
 	var out []Kitchen
 	for rows.Next() {
 		var k Kitchen
-		if err := rows.Scan(&k.ID, &k.Name, &k.Location, &k.VendorID, &k.CapacityKW); err != nil {
+		if err := rows.Scan(&k.ID, &k.Name, &k.Location, &k.VendorID, &k.CapacityKW, &k.Region); err != nil {
 			return nil, err
 		}
 		out = append(out, k)

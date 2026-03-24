@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: payments-prod
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/shellworlds/BRLBX4.0.git
+    targetRevision: main
+    path: infrastructure/k8s/apps/payments/overlays/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: prod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

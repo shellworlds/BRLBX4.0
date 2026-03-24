@@ -10,6 +10,7 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
+	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/auth"
 	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/cors"
 	"github.com/shellworlds/BRLBX4.0/backend-services/pkg/metrics"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/vendor-ecosystem/internal/logic"
@@ -22,6 +23,9 @@ type RouterConfig struct {
 	Daily         *repo.DailyVendorStore
 	InternalToken string
 	EnableSwagger bool
+	Validator     *auth.Validator
+	// PlatformFeeBPS is the fee taken on each meal transaction (e.g. 500 = 5%).
+	PlatformFeeBPS int
 }
 
 func NewRouter(cfg RouterConfig) *gin.Engine {
@@ -143,6 +147,14 @@ func NewRouter(cfg RouterConfig) *gin.Engine {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+		feeBps := cfg.PlatformFeeBPS
+		if feeBps <= 0 {
+			feeBps = 500
+		}
+		if err := store.ApplyMealNetCredits(c.Request.Context(), body.VendorID, body.Amount, feeBps, tx.ID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 
 		fin, err := store.LatestOpenFinancing(c.Request.Context(), body.VendorID)
 		if err != nil {
@@ -243,5 +255,59 @@ func NewRouter(cfg RouterConfig) *gin.Engine {
 		})
 	}
 
+	if cfg.Validator != nil {
+		me := v1.Group("/vendors/me")
+		me.Use(auth.Middleware(cfg.Validator))
+		me.Use(auth.RequireRole("vendor"))
+		me.GET("/wallet", func(c *gin.Context) {
+			vid, ok := vendorIDFromJWT(c)
+			if !ok {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "vendor_id claim missing; set https://borelsigma.com/vendor_id in Auth0 Action"})
+				return
+			}
+			w, err := store.GetWallet(c.Request.Context(), vid)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, w)
+		})
+		me.POST("/wallet/withdraw", func(c *gin.Context) {
+			vid, ok := vendorIDFromJWT(c)
+			if !ok {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "vendor_id claim missing"})
+				return
+			}
+			var body struct {
+				Amount float64 `json:"amount" binding:"required"`
+			}
+			if err := c.ShouldBindJSON(&body); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+			pr, err := store.RequestPayout(c.Request.Context(), vid, body.Amount)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusCreated, gin.H{
+				"payout":               pr,
+				"stripe_connect_note": "Complete Stripe Connect onboarding on vendor record; ops completes transfer from payments service.",
+			})
+		})
+	}
+
 	return r
+}
+
+func vendorIDFromJWT(c *gin.Context) (uuid.UUID, bool) {
+	s := auth.StringClaimFromContext(c, "https://borelsigma.com/vendor_id", "vendor_id")
+	if s == "" {
+		return uuid.Nil, false
+	}
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return uuid.Nil, false
+	}
+	return id, true
 }

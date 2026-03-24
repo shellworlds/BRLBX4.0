@@ -48,12 +48,13 @@ func NewRouter(cfg RouterConfig) *gin.Engine {
 			Role     string  `json:"role" binding:"required"`
 			ClientID *string `json:"client_id"`
 			VendorID *string `json:"vendor_id"`
+			Region   string  `json:"region"`
 		}
 		if err := c.ShouldBindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		u := &repo.User{Auth0ID: body.Auth0ID, Email: body.Email, Role: strings.ToLower(body.Role)}
+		u := &repo.User{Auth0ID: body.Auth0ID, Email: body.Email, Role: strings.ToLower(body.Role), Region: strings.TrimSpace(body.Region)}
 		u.ClientID = emptyStringPtr(body.ClientID)
 		u.VendorID = emptyStringPtr(body.VendorID)
 

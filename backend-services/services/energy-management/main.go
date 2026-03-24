@@ -81,6 +81,7 @@ func main() {
 		Kitchens:      &repo.KitchenStore{DB: pgPool},
 		Readings:      &repo.ReadingStore{DB: tsPool},
 		Reports:       &repo.DailyReportStore{DB: pgPool},
+		EmissionFactors: &repo.EmissionFactorStore{DB: pgPool},
 		InternalToken: config.GetString("INTERNAL_AGGREGATE_TOKEN"),
 		EnableSwagger: config.GetBool("ENABLE_SWAGGER", true),
 	})

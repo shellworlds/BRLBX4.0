@@ -21,6 +21,7 @@ import (
 const ctxKeySubject = "auth_subject"
 const ctxKeyRoles = "auth_roles"
 const ctxKeyEmail = "auth_email"
+const ctxKeyClaims = "auth_claims"
 
 // User is the normalized identity extracted from a verified JWT.
 type User struct {
@@ -151,28 +152,35 @@ func rsaKeyFromComponents(nb64, eb64 string) (*rsa.PublicKey, error) {
 
 // Parse validates token string and returns a normalized user.
 func (v *Validator) Parse(tokenStr string) (*User, error) {
+	u, _, err := v.ParseWithClaims(tokenStr)
+	return u, err
+}
+
+// ParseWithClaims validates the token and returns the user plus raw JWT claims (for custom namespaces).
+func (v *Validator) ParseWithClaims(tokenStr string) (*User, jwt.MapClaims, error) {
 	parser := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Alg()}))
 	tok, err := parser.Parse(tokenStr, v.keyFunc)
 	if err != nil || tok == nil || !tok.Valid {
-		return nil, errors.New("invalid token")
+		return nil, nil, errors.New("invalid token")
 	}
 	m, ok := tok.Claims.(jwt.MapClaims)
 	if !ok {
-		return nil, errors.New("invalid claims")
+		return nil, nil, errors.New("invalid claims")
 	}
 	if v.cfg.Issuer != "" {
 		iss, _ := m["iss"].(string)
 		if iss != v.cfg.Issuer {
-			return nil, errors.New("invalid issuer")
+			return nil, nil, errors.New("invalid issuer")
 		}
 	}
 	if v.cfg.Audience != "" && !audienceIncludes(m, v.cfg.Audience) {
-		return nil, errors.New("invalid audience")
+		return nil, nil, errors.New("invalid audience")
 	}
 	sub, _ := m["sub"].(string)
 	email, _ := m["email"].(string)
 	roles := rolesFromMap(m)
-	return &User{Subject: sub, Email: email, Roles: roles}, nil
+	u := &User{Subject: sub, Email: email, Roles: roles}
+	return u, m, nil
 }
 
 func audienceIncludes(m jwt.MapClaims, want string) bool {
@@ -219,7 +227,7 @@ func Middleware(v *Validator) gin.HandlerFunc {
 			return
 		}
 		raw := strings.TrimSpace(h[7:])
-		user, err := v.Parse(raw)
+		user, claims, err := v.ParseWithClaims(raw)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			return
@@ -227,6 +235,7 @@ func Middleware(v *Validator) gin.HandlerFunc {
 		c.Set(ctxKeySubject, user.Subject)
 		c.Set(ctxKeyEmail, user.Email)
 		c.Set(ctxKeyRoles, user.Roles)
+		c.Set(ctxKeyClaims, claims)
 		c.Next()
 	}
 }
@@ -240,7 +249,7 @@ func OptionalMiddleware(v *Validator) gin.HandlerFunc {
 			return
 		}
 		raw := strings.TrimSpace(h[7:])
-		user, err := v.Parse(raw)
+		user, claims, err := v.ParseWithClaims(raw)
 		if err != nil {
 			c.Next()
 			return
@@ -248,6 +257,7 @@ func OptionalMiddleware(v *Validator) gin.HandlerFunc {
 		c.Set(ctxKeySubject, user.Subject)
 		c.Set(ctxKeyEmail, user.Email)
 		c.Set(ctxKeyRoles, user.Roles)
+		c.Set(ctxKeyClaims, claims)
 		c.Next()
 	}
 }
@@ -293,6 +303,27 @@ func RolesFromContext(c *gin.Context) []string {
 		}
 	}
 	return nil
+}
+
+// StringClaimFromContext returns the first non-empty string claim from the verified JWT (set by Middleware).
+func StringClaimFromContext(c *gin.Context, keys ...string) string {
+	raw, ok := c.Get(ctxKeyClaims)
+	if !ok {
+		return ""
+	}
+	m, ok := raw.(jwt.MapClaims)
+	if !ok {
+		return ""
+	}
+	for _, k := range keys {
+		if s, ok := m[k].(string); ok {
+			s = strings.TrimSpace(s)
+			if s != "" {
+				return s
+			}
+		}
+	}
+	return ""
 }
 
 // AdminAPIKeyMiddleware allows admin routes via static key (bootstrap / machine admin).

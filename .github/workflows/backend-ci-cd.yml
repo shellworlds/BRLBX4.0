@@ -90,6 +90,8 @@ jobs:
           push_img iot-ingestion backend-services/services/iot-ingestion/Dockerfile
           push_img auth-rbac backend-services/services/auth-rbac/Dockerfile
           push_img ml-predictor backend-services/services/ml-predictor/Dockerfile
+          push_img payments backend-services/services/payments/Dockerfile
+          push_img compliance backend-services/services/compliance/Dockerfile
 
       - name: Bump dev Kustomize tags
         if: steps.wif.outputs.enabled == 'true'
@@ -105,6 +107,8 @@ jobs:
             infrastructure/k8s/apps/iot-ingestion/overlays/dev/kustomization.yaml
             infrastructure/k8s/apps/auth-rbac/overlays/dev/kustomization.yaml
             infrastructure/k8s/apps/ml-predictor/overlays/dev/kustomization.yaml
+            infrastructure/k8s/apps/payments/overlays/dev/kustomization.yaml
+            infrastructure/k8s/apps/compliance/overlays/dev/kustomization.yaml
           )
           for f in "${files[@]}"; do
             sed -i.bak "s/newTag: .*/newTag: ${TAG}/" "${f}"

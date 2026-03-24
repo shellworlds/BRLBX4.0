@@ -1,0 +1,6 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payments-config
+data:
+  cloudsql_instances: "PROJECT:REGION:payments-pg=tcp:5432"

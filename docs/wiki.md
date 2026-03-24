@@ -8,6 +8,7 @@ The repository has **Wiki** enabled. GitHub creates the wiki Git endpoint the fi
    - `README.md` (overview)
    - `infrastructure/README.md` (ops)
    - `docs/architecture.md` (diagram)
+   - `docs/day5-progress.md` (Day 5 payments/compliance/security status)
 
 Advanced contributors can clone the wiki repository:
 

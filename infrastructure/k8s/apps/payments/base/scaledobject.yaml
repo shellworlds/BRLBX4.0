@@ -1,0 +1,14 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: payments-so
+spec:
+  scaleTargetRef:
+    name: payments
+  minReplicaCount: 1
+  maxReplicaCount: 4
+  triggers:
+    - type: cpu
+      metadata:
+        type: Utilization
+        value: "80"

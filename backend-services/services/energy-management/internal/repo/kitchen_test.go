@@ -16,7 +16,7 @@ func TestKitchenCreate_Mock(t *testing.T) {
 
 	k := &Kitchen{Name: "k1", Location: "L", VendorID: uuid.New(), CapacityKW: 10}
 	rows := pgxmock.NewRows([]string{"id"}).AddRow(uuid.New())
-	mock.ExpectQuery(`INSERT INTO kitchens`).WithArgs(k.Name, k.Location, k.VendorID, k.CapacityKW).WillReturnRows(rows)
+	mock.ExpectQuery(`INSERT INTO kitchens`).WithArgs(k.Name, k.Location, k.VendorID, k.CapacityKW, "global").WillReturnRows(rows)
 
 	s := &KitchenStore{DB: mock}
 	require.NoError(t, s.Create(context.Background(), k))

@@ -9,6 +9,6 @@ import (
 )
 
 func TestRunDailyClientAggregate_NilDeps(t *testing.T) {
-	err := RunDailyClientAggregate(context.Background(), nil, nil, nil, time.Now())
+	err := RunDailyClientAggregate(context.Background(), nil, nil, nil, nil, time.Now())
 	require.Error(t, err)
 }
