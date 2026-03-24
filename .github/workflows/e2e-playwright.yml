@@ -37,6 +37,12 @@ jobs:
           PLAYWRIGHT_BASE_URL: ${{ secrets.E2E_BASE_URL }}
           E2E_AUTH0_EMAIL: ${{ secrets.E2E_AUTH0_EMAIL }}
           E2E_AUTH0_PASSWORD: ${{ secrets.E2E_AUTH0_PASSWORD }}
+          E2E_AUTH0_VENDOR_EMAIL: ${{ secrets.E2E_AUTH0_VENDOR_EMAIL }}
+          E2E_AUTH0_VENDOR_PASSWORD: ${{ secrets.E2E_AUTH0_VENDOR_PASSWORD }}
+          E2E_AUTH0_CLIENT_EMAIL: ${{ secrets.E2E_AUTH0_CLIENT_EMAIL }}
+          E2E_AUTH0_CLIENT_PASSWORD: ${{ secrets.E2E_AUTH0_CLIENT_PASSWORD }}
+          E2E_AUTH0_ADMIN_EMAIL: ${{ secrets.E2E_AUTH0_ADMIN_EMAIL }}
+          E2E_AUTH0_ADMIN_PASSWORD: ${{ secrets.E2E_AUTH0_ADMIN_PASSWORD }}
           AUTH0_SECRET: ci_e2e_placeholder_secret_at_least_32_chars_x
           AUTH0_BASE_URL: http://127.0.0.1:3000
           AUTH0_ISSUER_BASE_URL: https://placeholder.auth0.com
@@ -48,6 +54,6 @@ jobs:
             echo "::notice::E2E_AUTH0_EMAIL not set — auth flows skipped."
           fi
           npm run build
-          npm run start &
-          sleep 12
+          PORT=3000 HOSTNAME=127.0.0.1 node .next/standalone/server.js &
+          sleep 8
           npm run test:e2e

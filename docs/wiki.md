@@ -16,3 +16,5 @@ The repository has **Wiki** enabled. GitHub creates the wiki Git endpoint the fi
 Advanced contributors can clone the wiki repository:
 
 `https://github.com/shellworlds/BRLBX4.0.wiki.git`
+
+**E2E (Playwright) secrets** (optional): `E2E_BASE_URL`, `E2E_AUTH0_EMAIL` / `PASSWORD` (vendor default), plus `E2E_AUTH0_CLIENT_*`, `E2E_AUTH0_ADMIN_*`, `E2E_AUTH0_VENDOR_*` for role-specific suites. CI serves the **standalone** Node server after `next build`.

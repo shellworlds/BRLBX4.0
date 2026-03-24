@@ -105,24 +105,34 @@ async function proxy(
   return out;
 }
 
-type RouteCtx = { params: { service: string; path?: string[] } };
+type RouteCtx = { params: Promise<{ service: string; path?: string[] }> };
+
+async function paramsFrom(ctx: RouteCtx) {
+  const p = await ctx.params;
+  return { service: p.service, pathParts: p.path };
+}
 
 export async function GET(req: NextRequest, ctx: RouteCtx) {
-  return proxy(req, ctx.params.service, ctx.params.path);
+  const { service, pathParts } = await paramsFrom(ctx);
+  return proxy(req, service, pathParts);
 }
 
 export async function POST(req: NextRequest, ctx: RouteCtx) {
-  return proxy(req, ctx.params.service, ctx.params.path);
+  const { service, pathParts } = await paramsFrom(ctx);
+  return proxy(req, service, pathParts);
 }
 
 export async function PUT(req: NextRequest, ctx: RouteCtx) {
-  return proxy(req, ctx.params.service, ctx.params.path);
+  const { service, pathParts } = await paramsFrom(ctx);
+  return proxy(req, service, pathParts);
 }
 
 export async function PATCH(req: NextRequest, ctx: RouteCtx) {
-  return proxy(req, ctx.params.service, ctx.params.path);
+  const { service, pathParts } = await paramsFrom(ctx);
+  return proxy(req, service, pathParts);
 }
 
 export async function DELETE(req: NextRequest, ctx: RouteCtx) {
-  return proxy(req, ctx.params.service, ctx.params.path);
+  const { service, pathParts } = await paramsFrom(ctx);
+  return proxy(req, service, pathParts);
 }

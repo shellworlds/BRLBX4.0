@@ -8,7 +8,11 @@ const customConfig = {
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
   },
-  testPathIgnorePatterns: ["<rootDir>/e2e/", "<rootDir>/node_modules/"],
+  testPathIgnorePatterns: [
+    "<rootDir>/e2e/",
+    "<rootDir>/node_modules/",
+    "<rootDir>/test/",
+  ],
   modulePathIgnorePatterns: ["<rootDir>/.next/"],
 };
 
