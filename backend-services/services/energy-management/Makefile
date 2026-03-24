@@ -1,6 +1,3 @@
-SERVICE_ROOT ?= $(abspath .)
-export SERVICE_ROOT
-
 .PHONY: test build docker
 
 test:
