@@ -1,12 +1,14 @@
 package api
 
 import (
+	"io"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/stripe/stripe-go/v81"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
@@ -16,6 +18,7 @@ import (
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/vendor-ecosystem/internal/logic"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/vendor-ecosystem/internal/repo"
 	"github.com/shellworlds/BRLBX4.0/backend-services/services/vendor-ecosystem/internal/reports"
+	"github.com/shellworlds/BRLBX4.0/backend-services/services/vendor-ecosystem/internal/stripepayout"
 )
 
 type RouterConfig struct {
@@ -26,9 +29,17 @@ type RouterConfig struct {
 	Validator     *auth.Validator
 	// PlatformFeeBPS is the fee taken on each meal transaction (e.g. 500 = 5%).
 	PlatformFeeBPS int
+	StripeSecretKey            string
+	StripeConnectWebhookSecret string
+	StripeConnectRefreshURL    string
+	StripeConnectReturnURL     string
+	StripeConnectCountry       string
 }
 
 func NewRouter(cfg RouterConfig) *gin.Engine {
+	if cfg.StripeSecretKey != "" {
+		stripe.Key = cfg.StripeSecretKey
+	}
 	r := gin.New()
 	r.Use(gin.Recovery())
 	cors.Use(r)
@@ -255,6 +266,43 @@ func NewRouter(cfg RouterConfig) *gin.Engine {
 		})
 	}
 
+	v1.POST("/internal/payouts/process", func(c *gin.Context) {
+		if cfg.InternalToken == "" {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "internal token disabled"})
+			return
+		}
+		if c.GetHeader("X-Internal-Token") != cfg.InternalToken {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "token"})
+			return
+		}
+		if cfg.StripeSecretKey == "" {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "stripe not configured"})
+			return
+		}
+		n, err := stripepayout.ProcessPendingStripeTransfers(c.Request.Context(), store, 50)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"processed": n, "warning": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"processed": n})
+	})
+
+	if cfg.StripeConnectWebhookSecret != "" {
+		v1.POST("/webhooks/stripe/connect", func(c *gin.Context) {
+			raw, err := io.ReadAll(io.LimitReader(c.Request.Body, 1<<20))
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "body"})
+				return
+			}
+			sig := c.GetHeader("Stripe-Signature")
+			if err := stripepayout.HandleConnectWebhook(c.Request.Context(), raw, sig, cfg.StripeConnectWebhookSecret, store); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"status": "ok"})
+		})
+	}
+
 	if cfg.Validator != nil {
 		me := v1.Group("/vendors/me")
 		me.Use(auth.Middleware(cfg.Validator))
@@ -290,11 +338,53 @@ func NewRouter(cfg RouterConfig) *gin.Engine {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
-			c.JSON(http.StatusCreated, gin.H{
-				"payout":               pr,
-				"stripe_connect_note": "Complete Stripe Connect onboarding on vendor record; ops completes transfer from payments service.",
-			})
+			resp := gin.H{"payout": pr}
+			if cfg.StripeSecretKey == "" {
+				resp["stripe_connect_note"] = "Set STRIPE_SECRET_KEY and complete Connect onboarding to settle payouts."
+			} else {
+				resp["next_step"] = "Cron or POST /internal/payouts/process creates Stripe transfers for pending rows."
+			}
+			c.JSON(http.StatusCreated, resp)
 		})
+
+		me.GET("/payouts", func(c *gin.Context) {
+			vid, ok := vendorIDFromJWT(c)
+			if !ok {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "vendor_id claim missing"})
+				return
+			}
+			items, err := store.ListPayoutsForVendor(c.Request.Context(), vid, 100)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"items": items})
+		})
+
+		if cfg.StripeSecretKey != "" && cfg.StripeConnectRefreshURL != "" && cfg.StripeConnectReturnURL != "" {
+			me.POST("/connect/onboarding", func(c *gin.Context) {
+				vid, ok := vendorIDFromJWT(c)
+				if !ok {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "vendor_id claim missing"})
+					return
+				}
+				country := cfg.StripeConnectCountry
+				if country == "" {
+					country = "US"
+				}
+				acctID, _, err := stripepayout.EnsureExpressAccount(c.Request.Context(), store, vid, country, "")
+				if err != nil {
+					c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+					return
+				}
+				url, err := stripepayout.CreateAccountOnboardingURL(acctID, cfg.StripeConnectRefreshURL, cfg.StripeConnectReturnURL)
+				if err != nil {
+					c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{"url": url, "stripe_connect_account_id": acctID})
+			})
+		}
 	}
 
 	return r

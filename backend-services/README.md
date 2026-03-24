@@ -50,7 +50,11 @@ Each service reads `SERVICE_ROOT` (defaults to `.` locally; Docker sets `/app` w
 **vendor-ecosystem**
 
 - `POSTGRES_VENDOR_DSN`
-- `INTERNAL_AGGREGATE_TOKEN` for vendor daily rollup
+- `INTERNAL_AGGREGATE_TOKEN` for vendor daily rollup + payout processor CronJob
+- `STRIPE_SECRET_KEY` — Connect transfers and Express onboarding
+- `STRIPE_CONNECT_WEBHOOK_SECRET` — `POST /api/v1/webhooks/stripe/connect`
+- `STRIPE_CONNECT_REFRESH_URL`, `STRIPE_CONNECT_RETURN_URL` — Account Link URLs for vendors
+- `STRIPE_CONNECT_DEFAULT_COUNTRY` (e.g. `US`)
 - `ENABLE_SWAGGER`
 
 **iot-ingestion**
@@ -70,7 +74,7 @@ Each service reads `SERVICE_ROOT` (defaults to `.` locally; Docker sets `/app` w
 
 - `POSTGRES_AUTH_DSN`
 - `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`
-- `AUTH0_SYNC_WEBHOOK_SECRET` (if empty, `/api/v1/users/sync` returns 503)
+- `AUTH0_SYNC_WEBHOOK_SECRET` — required for `/api/v1/users/sync`; send as `X-Webhook-Secret` or `Authorization: Bearer`
 - `ENABLE_SWAGGER`
 
 **ml-predictor**
@@ -127,7 +131,7 @@ Long-running **Docker integration** flows (full MQTT + multi-DB) are documented 
 Create SealedSecrets / ExternalSecrets with the same names referenced by manifests:
 
 - `energy-management-secrets`: `POSTGRES_KITCHEN_DSN`, `POSTGRES_TIMESCALE_DSN`, optional `ADMIN_API_KEY`, `INGEST_BEARER_TOKEN`, `AUTH0_*`, `INTERNAL_AGGREGATE_TOKEN`
-- `vendor-ecosystem-secrets`: `POSTGRES_VENDOR_DSN`, `INTERNAL_AGGREGATE_TOKEN`
+- `vendor-ecosystem-secrets`: `POSTGRES_VENDOR_DSN`, `INTERNAL_AGGREGATE_TOKEN`, Stripe Connect keys (`STRIPE_SECRET_KEY`, `STRIPE_CONNECT_WEBHOOK_SECRET`, refresh/return URLs)
 - `iot-ingestion-secrets`: `POSTGRES_IOT_DSN`, `POSTGRES_IOT_TIMESCALE_DSN`, `ENERGY_SERVICE_URL`, `MQTT_BROKER_URL`, optional MQTT creds, `INGEST_BEARER_TOKEN`, `SLACK_WEBHOOK_URL`
 - `auth-rbac-secrets`: `POSTGRES_AUTH_DSN`, `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`, `AUTH0_SYNC_WEBHOOK_SECRET`
 - `ml-predictor-secrets`: optional Redis secrets if not using env literals

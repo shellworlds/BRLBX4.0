@@ -38,12 +38,20 @@ func NewRouter(cfg RouterConfig) *gin.Engine {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "webhook not configured"})
 			return
 		}
-		if c.GetHeader("X-Webhook-Secret") != cfg.WebhookSecret {
+		provided := c.GetHeader("X-Webhook-Secret")
+		if provided == "" {
+			h := c.GetHeader("Authorization")
+			if strings.HasPrefix(strings.ToLower(h), "bearer ") {
+				provided = strings.TrimSpace(h[7:])
+			}
+		}
+		if provided != cfg.WebhookSecret {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid webhook secret"})
 			return
 		}
 		var body struct {
-			Auth0ID  string  `json:"auth0_id" binding:"required"`
+			Auth0ID  string  `json:"auth0_id"`
+			Sub      string  `json:"sub"`
 			Email    string  `json:"email" binding:"required"`
 			Role     string  `json:"role" binding:"required"`
 			ClientID *string `json:"client_id"`
@@ -54,7 +62,15 @@ func NewRouter(cfg RouterConfig) *gin.Engine {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		u := &repo.User{Auth0ID: body.Auth0ID, Email: body.Email, Role: strings.ToLower(body.Role), Region: strings.TrimSpace(body.Region)}
+		auth0ID := strings.TrimSpace(body.Auth0ID)
+		if auth0ID == "" {
+			auth0ID = strings.TrimSpace(body.Sub)
+		}
+		if auth0ID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "auth0_id or sub required"})
+			return
+		}
+		u := &repo.User{Auth0ID: auth0ID, Email: body.Email, Role: strings.ToLower(body.Role), Region: strings.TrimSpace(body.Region)}
 		u.ClientID = emptyStringPtr(body.ClientID)
 		u.VendorID = emptyStringPtr(body.VendorID)
 

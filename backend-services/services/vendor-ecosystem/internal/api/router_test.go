@@ -63,3 +63,61 @@ func TestTransactionsBindError(t *testing.T) {
 	r.ServeHTTP(w, req)
 	require.Equal(t, http.StatusBadRequest, w.Code)
 }
+
+func TestInternalPayoutsProcessTokenDisabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := NewRouter(RouterConfig{
+		Store:         &repo.Store{},
+		Daily:         &repo.DailyVendorStore{},
+		InternalToken: "",
+		EnableSwagger: false,
+	})
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/v1/internal/payouts/process", nil))
+	require.Equal(t, http.StatusServiceUnavailable, w.Code)
+}
+
+func TestInternalPayoutsProcessUnauthorized(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := NewRouter(RouterConfig{
+		Store:         &repo.Store{},
+		Daily:         &repo.DailyVendorStore{},
+		InternalToken: "secret",
+		EnableSwagger: false,
+	})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/internal/payouts/process", nil)
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestInternalPayoutsProcessStripeNotConfigured(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := NewRouter(RouterConfig{
+		Store:           &repo.Store{},
+		Daily:           &repo.DailyVendorStore{},
+		InternalToken:   "secret",
+		StripeSecretKey: "",
+		EnableSwagger:   false,
+	})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/internal/payouts/process", nil)
+	req.Header.Set("X-Internal-Token", "secret")
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusServiceUnavailable, w.Code)
+}
+
+func TestStripeConnectWebhookBadSignature(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := NewRouter(RouterConfig{
+		Store:                      &repo.Store{},
+		Daily:                      &repo.DailyVendorStore{},
+		StripeConnectWebhookSecret: "whsec_test_123456789012345678901234",
+		EnableSwagger:              false,
+	})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/stripe/connect", bytes.NewReader([]byte(`{}`)))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusBadRequest, w.Code)
+}

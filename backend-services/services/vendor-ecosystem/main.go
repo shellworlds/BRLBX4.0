@@ -65,6 +65,11 @@ func main() {
 		EnableSwagger:  config.GetBool("ENABLE_SWAGGER", true),
 		Validator:      validator,
 		PlatformFeeBPS: config.GetInt("PLATFORM_FEE_BPS", 500),
+		StripeSecretKey:            config.GetString("STRIPE_SECRET_KEY"),
+		StripeConnectWebhookSecret: config.GetString("STRIPE_CONNECT_WEBHOOK_SECRET"),
+		StripeConnectRefreshURL:    config.GetString("STRIPE_CONNECT_REFRESH_URL"),
+		StripeConnectReturnURL:     config.GetString("STRIPE_CONNECT_RETURN_URL"),
+		StripeConnectCountry:       config.GetString("STRIPE_CONNECT_DEFAULT_COUNTRY"),
 	})
 
 	addr := fmt.Sprintf(":%d", config.GetInt("PORT", 8080))

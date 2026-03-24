@@ -17,6 +17,7 @@ filtered=()
 for p in "${PKGS[@]}"; do
   [[ "$p" == *payments/internal/api* ]] && continue
   [[ "$p" == *compliance/internal/api* ]] && continue
+  [[ "$p" == *vendor-ecosystem/internal/stripepayout* ]] && continue
   filtered+=("$p")
 done
 PKGS=("${filtered[@]}")
