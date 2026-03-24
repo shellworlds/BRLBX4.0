@@ -18,6 +18,12 @@ export default function VendorDashboardPage() {
   const { data: fins } = useSWR(vendorId ? ["fin", vendorId] : null, () =>
     vendorApi.listFinancing(vendorId),
   );
+  const { data: wallet } = useSWR(vendorId ? ["wallet", vendorId] : null, () =>
+    vendorApi.myWallet(),
+  );
+  const { data: payouts } = useSWR(vendorId ? ["payouts", vendorId] : null, () =>
+    vendorApi.listPayouts(),
+  );
 
   const chartData = (txs?.items || []).slice(0, 14).map((t, i) => ({
     i: String(i + 1),
@@ -58,6 +64,48 @@ export default function VendorDashboardPage() {
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm text-slate-500">Recent transactions</p>
           <p className="mt-2 text-3xl font-bold text-ink-950">{txs?.items?.length ?? 0}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:col-span-3">
+          <p className="text-sm font-medium text-slate-700">Wallet</p>
+          <p className="mt-1 text-lg text-ink-950">
+            Balance:{" "}
+            <span className="font-semibold">
+              {(wallet as { balance?: number })?.balance?.toFixed?.(2) ?? "—"}
+            </span>
+            {" · "}
+            Pending payout:{" "}
+            <span className="font-semibold">
+              {(wallet as { pending_payout?: number })?.pending_payout?.toFixed?.(2) ?? "—"}
+            </span>
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
+              onClick={async () => {
+                try {
+                  const j = await vendorApi.connectOnboarding();
+                  if (j.url) window.location.href = j.url;
+                } catch {
+                  /* noop — Connect URLs require backend env */
+                }
+              }}
+            >
+              Stripe Connect onboarding
+            </button>
+          </div>
+          <div className="mt-4 max-h-40 overflow-auto text-xs text-slate-600">
+            <p className="font-semibold text-slate-800">Payout history</p>
+            <ul className="mt-1 space-y-1">
+              {(payouts?.items || []).slice(0, 8).map((p) => (
+                <li key={p.id}>
+                  {p.status} · {p.amount} · {p.created_at?.slice?.(0, 10) ?? ""}
+                  {p.stripe_transfer_id ? ` · ${p.stripe_transfer_id}` : ""}
+                  {p.failure_reason ? ` · ${p.failure_reason}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

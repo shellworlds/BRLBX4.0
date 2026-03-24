@@ -93,6 +93,16 @@ export const energyApi = {
     ),
 };
 
+export interface PayoutRow {
+  id: string;
+  vendor_id: string;
+  amount: number;
+  status: string;
+  stripe_transfer_id?: string;
+  failure_reason?: string;
+  created_at?: string;
+}
+
 export const vendorApi = {
   listTransactions: (vendorId: string, limit = 100) =>
     fetchJSON<{ items: Transaction[] }>(
@@ -119,6 +129,12 @@ export const vendorApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ amount }),
     }).then((r) => r.json()),
+  listPayouts: () =>
+    fetchJSON<{ items: PayoutRow[] }>("vendor", "/api/v1/vendors/me/payouts"),
+  connectOnboarding: () =>
+    fetchUpstream("vendor", "/api/v1/vendors/me/connect/onboarding", {
+      method: "POST",
+    }).then((r) => r.json() as Promise<{ url?: string }>),
 };
 
 export const iotApi = {
