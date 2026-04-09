@@ -30,7 +30,7 @@ jobs:
         working-directory: backend-services
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.22"
           cache-dependency-path: backend-services/go.sum
