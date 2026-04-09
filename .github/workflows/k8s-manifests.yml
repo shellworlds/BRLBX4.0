@@ -43,7 +43,7 @@ jobs:
           - path: infrastructure/k8s/bootstrap
           - path: infrastructure/k8s/ingress
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install kustomize
         run: |
           set -euo pipefail
